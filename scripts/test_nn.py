@@ -2,7 +2,7 @@ import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
 from gru_decoder import GRUDecoder
 from data import Dataset, Args
-from mwmp import test_mwpm
+from mwpm import test_mwpm
 import torch
 
 if __name__ == "__main__":
