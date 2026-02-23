@@ -1,0 +1,16 @@
+#!/usr/bin/env bash 
+#SBATCH -A NAISS2025-5-525      # Project
+#SBATCH -p alvis                # Partition
+#SBATCH -t 0-00:05:00           # time limit days-hours:minutes:seconds
+#SBATCH --gpus-per-node=A40:1   # GPUs 64GB of RAM; cost factor 1.0
+#SBATCH --output=jobs/logs/%x-%j.out 
+#SBATCH --job-name=d5_vs_mwpm
+
+cd "$SLURM_SUBMIT_DIR" 
+
+module purge
+module load Python/3.12.3-GCCcore-13.3.0
+source .venv/bin/activate
+
+echo "Distance 5 vs mwmp" 
+srun python scripts/test_nn.py

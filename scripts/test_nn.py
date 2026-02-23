@@ -20,8 +20,8 @@ if __name__ == "__main__":
         seed=42 
     )
 
-    decoder_d5 = GRUDecoder(args)
-    decoder_d5.load_state_dict(torch.load("./models/distance5.pt", weights_only=True))
+    decoder_d5 = GRUDecoder(args).to(args.device)
+    decoder_d5.load_state_dict(torch.load("./models/distance5.pt", weights_only=True, map_location=args.device))
     
     n_iter = 100
     decoder_d5.test_model(Dataset(args), n_iter=n_iter)
