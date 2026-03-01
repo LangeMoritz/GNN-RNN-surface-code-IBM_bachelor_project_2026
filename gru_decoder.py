@@ -8,6 +8,7 @@ from tqdm import tqdm
 from torch.optim.lr_scheduler import LambdaLR
 from copy import deepcopy
 
+
 class GRUDecoder(nn.Module):
     """
     A QEC decoder combining a GNN and an RNN.
