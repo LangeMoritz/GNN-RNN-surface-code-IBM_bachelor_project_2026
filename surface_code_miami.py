@@ -25,13 +25,9 @@ class SurfaceCodeCircuit:
         self.num_aqubits = distance ** 2 -1
         self.T = 0
        
-        # Quantum register stores data qubits (logical information)
         self.code_qubit = QuantumRegister((self.num_dqubits), "code_qubit")
-        # Stores ancilla/syndrome qubits (parity checks)
         self.measure_qubit = AncillaRegister((self.num_aqubits), "measure_qubit")
-        # code_bit stores final readout of all data qubits
         self.code_bit = ClassicalRegister(self.num_dqubits, "code_bit")
-        # measure_bits = List of Classical register. one per syndrome round, storing ancilla measurment.
         self.measure_bits = []
         
         self.qubit_registers = {"code_qubit", "measure_qubit"}
@@ -43,12 +39,28 @@ class SurfaceCodeCircuit:
         if (self._xbasis):
          self.circuit.h(self.code_qubit)
         
-        
-        # Physical Qubits
-        self.data_qubits3 = [50, 41, 32, 61, 52, 43, 72, 63, 54]
-        self.ancilla_qubits3 = [51, 42, 62, 53, 40, 64, 33, 71]
-        self.data_qubits5 = [50, 41, 32, 23, 14, 61, 52, 43, 34, 25, 72, 63, 54, 45, 36, 83, 74, 65, 56, 47, 94, 85, 76, 69, 58]
-        self.ancilla_qubits5 = [51, 42, 33, 24, 40, 22, 62, 53, 44, 35, 15, 71, 73, 64, 55, 46, 37, 93, 84, 75, 66, 57, 86, 68]
+        # Physical Qubits 
+        if distance == 3:
+            self.data_physical = [50, 41, 32, 61, 52, 43, 72, 63, 54] # fixa så man ser type 2s
+            self.ancilla_physical = [51, 42, 62, 53, 40, 64, 33, 71]
+        elif distance == 5:
+            self.data_physical = [
+                50, 41, 32, 23, 14,
+                61, 52, 43, 34, 25,
+                72, 63, 54, 45, 36,
+                83, 74, 65, 56, 47,
+                94, 85, 76, 69, 58,
+            ]
+            self.ancilla_physical = [
+                51, 42, 33, 24,
+                40, 22,
+                62, 53, 44, 35, 15,
+                71, 73, 64, 55, 46, 37,
+                93, 84, 75, 66, 57,
+                86, 68,
+            ]
+        else:
+            raise ValueError(f"Unsupported distance: {distance}")
         
         #Lists for which ancilla qubits and code qubits should be entangled in order
         self.entagle_list_code_3d = [1, 2, 3, 4, 5, 8, 2, 3, 4, 5, 6, 9, 1, 4, 5, 6, 7, 8, 2, 5, 6, 7, 8, 9]
@@ -63,24 +75,12 @@ class SurfaceCodeCircuit:
             self.syndrome_measurement()
             self.readout()
 
-    def make_layout(self, distance):
+    def make_layout(self):
         layout_map = {}
-
-        if distance == 3:
-            data_phys = self.data_qubits3
-            anc_phys = self.ancilla_qubits3
-        elif distance == 5:
-            data_phys = self.data_qubits5
-            anc_phys = self.ancilla_qubits5
-        else:
-            raise ValueError(f"Unsupported distance: {distance}")
-        
-        for qubit, phys in zip(self.code_qubit, data_phys):
+        for qubit, phys in zip(self.code_qubit, self.data_physical):
             layout_map[qubit] = phys
-
-        for qubit, phys in zip(self.measure_qubit, anc_phys):
+        for qubit, phys in zip(self.measure_qubit, self.ancilla_physical):
             layout_map[qubit] = phys
-
         return Layout(layout_map)
 
 
@@ -120,7 +120,7 @@ class SurfaceCodeCircuit:
 
         self.T += 1
 
-        # Entaglement
+                # Entaglement
         # self.circuit.barrier()
         # for j in range(self.entagle_list_code_5d):
         #     if self.entagle_list_anzilla_5d[j] % == 0: #om jämn, varannan anzilla vill vi entangla i x-bas
@@ -130,9 +130,8 @@ class SurfaceCodeCircuit:
         #     else:
         #         self.circuit.cx(self.code_qubit[self.entagle_list_code_5d[j]], self.measure_qubit[self.entagle_list_anzilla_5d[j]])
         #  self.circuit.barrier()
-
-
-         
+        
+         # Z. NW, NE, SW, SE?
          # X ancilla -> NE, NW, SE, SW. ancilla -> data, H before and after
          # Z ancilla -> NE, SE, NW, SW. data -> ancilla
 
