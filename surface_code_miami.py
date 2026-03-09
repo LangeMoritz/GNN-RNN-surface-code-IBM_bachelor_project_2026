@@ -1,6 +1,8 @@
 from qiskit import transpile, ClassicalRegister, QuantumCircuit, QuantumRegister
 from qiskit.transpiler import Layout
-from qiskit_ibm_runtime import QiskitRuntimeService, RuntimeDecoder, RuntimeEncoder
+from qiskit_ibm_runtime import QiskitRuntimeService, RuntimeEncoder
+from qiskit_ibm_runtime import SamplerV2 as Sampler
+import json
 import os
 from dotenv import load_dotenv
 
@@ -78,6 +80,7 @@ class SurfaceCodeCircuit:
             self.syndrome_measurement()
             self.readout()
 
+
     def make_layout(self):
         layout_map = {}
         for qubit, phys in zip(self.code_qubit, self.data_physical):
@@ -135,3 +138,60 @@ class SurfaceCodeCircuit:
             self.circuit.h(self.code_qubit)
         self.circuit.add_register(self.code_bit)
         self.circuit.measure(self.code_qubit, self.code_bit)
+
+def get_runtime_service():
+    load_dotenv()
+    return QiskitRuntimeService(token=os.getenv("IBM_KEY"), instance="Surface Codes - Bachelor Thesis 2")
+
+
+def submit_to_ibm(distance: int, T: int, shots: int):
+    """
+    Build circuit, transpile, and submit to IBM hardware.
+    """
+    service = get_runtime_service()
+    backend = service.backend("ibm_miami")
+
+    sc = SurfaceCodeCircuit(distance=distance, T=T)
+    transpiled = transpile(
+        sc.circuit,
+        backend=backend,
+        initial_layout=sc.make_layout(),
+        optimization_level=1,
+        seed_transpiler=42,
+    )
+
+    sampler = Sampler(mode=backend)
+    job = sampler.run([transpiled], shots=shots)
+    print(f"Job submitted: {job.job_id()}")
+    print(f"Save results with: save_job_result('{job.job_id()}')")
+    return job
+
+
+def save_job_result(job_id: str):
+    """
+    Retrieve a completed job and save results to JSON.
+    """
+    service = get_runtime_service()
+    job = service.job(job_id)
+    result = job.result()
+
+    output_path = os.path.join("ibm_jobs", f"job_{job_id}.json")
+    with open(output_path, "w") as f:
+        json.dump(result, f, cls=RuntimeEncoder)
+    print(f"Results saved to {output_path}")
+    return output_path
+
+
+# Adjust params here
+if __name__ == "__main__":
+    DISTANCE = 5
+    T = 1        # syndrome rounds
+    SHOTS = 100  # Circuit runs
+
+    # 1: Submit to IBM
+    # job = submit_to_ibm(distance=DISTANCE, T=T, shots=SHOTS)
+
+    # 2: After job completes, save results (paste your job ID)
+    save_job_result("d6neao8fh9oc73ep2odg")
+
+    # 3: Decode with GNN-RNN -> see scripts/decode_hardware.py
