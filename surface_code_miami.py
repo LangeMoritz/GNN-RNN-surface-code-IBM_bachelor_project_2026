@@ -9,8 +9,8 @@ from dotenv import load_dotenv
 # Physical grid directions (qubit number = row*10 + col)
 W, N, S, E = -1, -10, +10, +1
 
-# X-type uses Z pattern: NW, NE, SW, SE -> W, N, S, E on chip
-# Z-type uses N pattern: NW, SW, NE, SE -> W, S, N, E on chip
+# X-type stabilizer uses Z pattern: NW, NE, SW, SE -> W, N, S, E on chip
+# Z-type stabilizer uses N pattern: NW, SW, NE, SE -> W, S, N, E on chip
 X_ORDER = [W, N, S, E]
 Z_ORDER = [W, S, N, E]
 
@@ -102,8 +102,9 @@ class SurfaceCodeCircuit:
                 self.circuit.h(self.measure_qubit[i])
         
         # Entangle
+        # BARRIER var?
+        self.circuit.barrier()
         for step in range(4):
-            self.circuit.barrier()      
             for anc_i, anc_p in enumerate(self.ancilla_physical):
                 is_x = anc_i in self.x_type
                 direction = X_ORDER[step] if is_x else Z_ORDER[step]
@@ -185,13 +186,13 @@ def save_job_result(job_id: str):
 # Adjust params here
 if __name__ == "__main__":
     DISTANCE = 5
-    T = 1        # syndrome rounds
+    T = 10        # syndrome rounds
     SHOTS = 100  # Circuit runs
 
     # 1: Submit to IBM
     # job = submit_to_ibm(distance=DISTANCE, T=T, shots=SHOTS)
 
     # 2: After job completes, save results (paste your job ID)
-    save_job_result("d6neao8fh9oc73ep2odg")
+    save_job_result("d6o3ais3pels73a2ah6g")
 
     # 3: Decode with GNN-RNN -> see scripts/decode_hardware.py

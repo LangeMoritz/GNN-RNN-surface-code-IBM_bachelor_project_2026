@@ -38,8 +38,7 @@ class IBMJobDecoder:
                     neighbors.append(sc.data_idx[nb])
             self._stabilizer_data[anc_i] = neighbors
 
-        # Build detector coordinates: logical (x, y) from data qubit neighbors,
-        # matching Stim's coordinate convention.
+        # Build detector coordinates: logical (x, y) from data qubit neighbors
         d = sc.distance
         self._detector_coords = np.zeros((self.num_ancilla, 4), dtype=np.float32)
         for i in range(self.num_ancilla):
@@ -50,25 +49,36 @@ class IBMJobDecoder:
             self._detector_coords[i] = [logical_x, logical_y, is_x, 1.0 - is_x]
 
     def _load_job_data(self):
-        """Parse IBM job JSON into detection events and logical flips."""
+        """Parse IBM job JSON into detection events and logical flips.
+        
+        Z-stabilizers: final_syndrome = parity of data qubits.
+          initial 0. 
+        X-stabilizers: data qubits are measured in Z-basis.
+          - initial = first ancilla measurement 
+          - final   = last ancilla measurement   
+          so diff at t=0 is 0
+        """
         n_data = self.distance ** 2
         final_state, syndromes = parse_ibm_job(
             self.job_path, self.t, n_data, self.num_ancilla, self.simulator
         )
 
         actual_shots = final_state.shape[0]
-
-        # Final syndrome from data qubit readout: parity of each stabilizer's data qubits
+        
         final_syndrome = np.zeros((actual_shots, self.num_ancilla), dtype=np.uint8)
+        initial = np.zeros((actual_shots, 1, self.num_ancilla), dtype=np.uint8)
         for anc_i, data_indices in self._stabilizer_data.items():
-            parity = np.zeros(actual_shots, dtype=np.uint8)
-            for d_i in data_indices:
-                parity ^= final_state[:, d_i]
-            final_syndrome[:, anc_i] = parity
+            if anc_i in self.x_type:
+                initial[:, 0, anc_i] = syndromes[:, 0, anc_i]
+                final_syndrome[:, anc_i] = syndromes[:, -1, anc_i]
+            else:
+                parity = np.zeros(actual_shots, dtype=np.uint8)
+                for d_i in data_indices:
+                    parity ^= final_state[:, d_i]
+                final_syndrome[:, anc_i] = parity
 
         # Detection events = XOR between consecutive syndrome rounds
-        # Stack: initial (zeros) | t rounds | final
-        initial = np.zeros((actual_shots, 1, self.num_ancilla), dtype=np.uint8)
+        # Stack: initial | t rounds | final
         all_syndromes = np.concatenate(
             [initial, syndromes, final_syndrome[:, np.newaxis, :]], axis=1
         )
@@ -209,7 +219,7 @@ if __name__ == "__main__":
     sc = SurfaceCodeCircuit(distance=DISTANCE, T=T)
     
     # Replace job_path with the actual path to your job file
-    dataset = IBMJobDecoder(sc, job_path="ibm_jobs/job_d6neao8fh9oc73ep2odg.json", dt=args.dt, k=args.k)
+    dataset = IBMJobDecoder(sc, job_path="ibm_jobs/job_d6o3ais3pels73a2ah6g.json", dt=args.dt, k=args.k)
 
     x, edge_index, labels, label_map, edge_attr, flips = dataset.generate_batch()
 
