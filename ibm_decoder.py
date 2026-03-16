@@ -26,7 +26,7 @@ class IBMJobDecoder:
         self.norm = norm
         self.device = device or torch.device("cpu")
 
-        # Build stabilizer-to-data-qubit map for final syndrome reconstruction
+        # Build stabilizer-to-data-qubit map for final syndrome reconstruction, almost same as in surface_code_miami.py
         self._stabilizer_data = {}
         for anc_i, anc_p in enumerate(sc.ancilla_physical):
             is_x = anc_i in sc.x_type
@@ -38,13 +38,15 @@ class IBMJobDecoder:
                     neighbors.append(sc.data_idx[nb])
             self._stabilizer_data[anc_i] = neighbors
 
-        # Build detector coordinates: logical (x, y) from data qubit neighbors
+        # Build detector coordinates: logical (x, y) from data qubit neighbors.
+        # Each ancilla is placed at the centroid of its data qubits in the d×d grid,
+        # e.g. a stabilizer touching columns {1,2} rows {0,1} → (x=1.5, y=0.5).
         d = sc.distance
         self._detector_coords = np.zeros((self.num_ancilla, 4), dtype=np.float32)
         for i in range(self.num_ancilla):
             neighbors = self._stabilizer_data[i]
-            logical_x = np.mean([n % d for n in neighbors])
-            logical_y = np.mean([n // d for n in neighbors])
+            logical_x = np.mean([n % d for n in neighbors]) # avg col idx
+            logical_y = np.mean([n // d for n in neighbors]) # avg row idx
             is_x = 1.0 if i in sc.x_type else 0.0
             self._detector_coords[i] = [logical_x, logical_y, is_x, 1.0 - is_x]
 
@@ -202,7 +204,7 @@ if __name__ == "__main__":
     from args import Args
 
     DISTANCE = 5
-    T = 1
+    T = 10
 
     args = Args(
         distance=DISTANCE,
