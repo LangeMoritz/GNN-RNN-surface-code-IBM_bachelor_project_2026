@@ -163,12 +163,12 @@ def submit_to_ibm(distance: int, T: int, shots: int):
 
     sampler = Sampler(mode=backend)
     job = sampler.run([transpiled], shots=shots)
-    print(f"Job submitted: {job.job_id()}")
-    print(f"Save results with: save_job_result('{job.job_id()}')")
+    print(f"Job submitted: {job.job_id()} | d={distance}, T={T}, shots={shots}")
+    print(f"Save results with: save_job_result('{job.job_id()}', distance={distance}, T={T}, shots={shots})")
     return job
 
 
-def save_job_result(job_id: str):
+def save_job_result(job_id: str, distance: int, T: int, shots: int):
     """
     Retrieve a completed job and save results to JSON.
     """
@@ -176,14 +176,14 @@ def save_job_result(job_id: str):
     job = service.job(job_id)
     result = job.result()
 
-    output_path = os.path.join("ibm_jobs", f"job_{job_id}.json")
+    output_path = os.path.join("ibm_jobs", f"job_{job_id}_d{distance}_T{T}_shots{shots}.json")
     with open(output_path, "w") as f:
         json.dump(result, f, cls=RuntimeEncoder)
     print(f"Results saved to {output_path}")
     return output_path
 
 
-# Adjust params here
+# Adjust params here, uncomment one step at a time.
 if __name__ == "__main__":
     DISTANCE = 5
     T = 10        # syndrome rounds
@@ -193,6 +193,6 @@ if __name__ == "__main__":
     # job = submit_to_ibm(distance=DISTANCE, T=T, shots=SHOTS)
 
     # 2: After job completes, save results (paste your job ID)
-    save_job_result("d6o3ais3pels73a2ah6g")
+    save_job_result("d6o3ais3pels73a2ah6g", distance=DISTANCE, T=T, shots=SHOTS)
 
     # 3: Decode with GNN-RNN -> see scripts/decode_hardware.py
