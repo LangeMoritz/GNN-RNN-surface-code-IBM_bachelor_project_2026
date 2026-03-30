@@ -19,7 +19,7 @@ CHIP_MAP = {
     3: {
         "data":    [50, 41, 32, 61, 52, 43, 72, 63, 54],
         "ancilla": [51, 42, 62, 53, 40, 64, 33, 71],
-        "x_type":  {1, 2, 4, 5}, 
+        "x_type":  {1, 2, 4, 5},
     },
     5: {
         "data": [
@@ -36,18 +36,14 @@ CHIP_MAP = {
             46, 37, 93, 84, 75,
             66, 57, 86, 68,
         ],
-        "x_type": {1, 3, 4, 5, 6, 8, 13, 15, 18, 20, 22, 23}, # dubbelkolla
+        "x_type": {1, 3, 4, 5, 6, 8, 13, 15, 18, 20, 22, 23}, # TODO
     },
 }
 
+
 class SurfaceCodeCircuit:
 
-    def __init__ (
-            self, 
-            distance: int,
-            T: int,
-            xbasis: bool = False):
-        
+    def __init__(self, distance: int, T: int, xbasis: bool = False):
         self.distance = distance
         self.T = 0
         self._xbasis = xbasis
@@ -57,29 +53,23 @@ class SurfaceCodeCircuit:
         self.ancilla_physical = layout["ancilla"]
         self.x_type = layout["x_type"]
 
-        self.code_qubit = QuantumRegister((len(self.data_physical)), "code_qubit")
-        self.measure_qubit = QuantumRegister((len(self.ancilla_physical)), "measure_qubit")
+        self.code_qubit = QuantumRegister(len(self.data_physical), "code_qubit")
+        self.measure_qubit = QuantumRegister(len(self.ancilla_physical), "measure_qubit")
         self.code_bit = ClassicalRegister(len(self.data_physical), "code_bit")
         self.measure_bits = []
-        
-        self.qubit_registers = {"code_qubit", "measure_qubit"}
-        
+
         self.circuit = QuantumCircuit(self.code_qubit, self.measure_qubit)
 
-        # Index mappings for physical qubits
         self.data_idx = {phys: i for i, phys in enumerate(self.data_physical)}
         self.data_set = set(self.data_physical)
 
         if self._xbasis:
             self.circuit.h(self.code_qubit)
 
-    
-        for _ in range(T - 1):
+        for _ in range(T):
             self.syndrome_measurement()
         if T != 0:
-            self.syndrome_measurement()
             self.readout()
-
 
     def make_layout(self):
         layout_map = {}
@@ -88,8 +78,7 @@ class SurfaceCodeCircuit:
         for qubit, phys in zip(self.measure_qubit, self.ancilla_physical):
             layout_map[qubit] = phys
         return Layout(layout_map)
-    
-   
+
     def syndrome_measurement(self):
         num_ancilla = len(self.ancilla_physical)
         mbit = ClassicalRegister(num_ancilla, f"round_{self.T}_measure_bit")
@@ -100,9 +89,7 @@ class SurfaceCodeCircuit:
         for i in range(num_ancilla):
             if i in self.x_type:
                 self.circuit.h(self.measure_qubit[i])
-        
-        # Entangle
-        # BARRIER var?
+
         self.circuit.barrier()
         for step in range(4):
             for anc_i, anc_p in enumerate(self.ancilla_physical):
@@ -121,14 +108,13 @@ class SurfaceCodeCircuit:
         for i in range(num_ancilla):
             if i in self.x_type:
                 self.circuit.h(self.measure_qubit[i])
-        
+
         # Measure all ancillas
         self.circuit.barrier()
         for j in range(num_ancilla):
             self.circuit.measure(self.measure_qubit[j], self.measure_bits[self.T][j])
 
         self.T += 1
-   
 
     def readout(self):
         """
@@ -139,6 +125,11 @@ class SurfaceCodeCircuit:
             self.circuit.h(self.code_qubit)
         self.circuit.add_register(self.code_bit)
         self.circuit.measure(self.code_qubit, self.code_bit)
+
+
+def job_path(job_id, distance, T, shots):
+    return os.path.join("ibm_jobs", f"job_{job_id}_d{distance}_T{T}_shots{shots}.json")
+
 
 def get_runtime_service():
     load_dotenv()
@@ -164,35 +155,34 @@ def submit_to_ibm(distance: int, T: int, shots: int):
     sampler = Sampler(mode=backend)
     job = sampler.run([transpiled], shots=shots)
     print(f"Job submitted: {job.job_id()} | d={distance}, T={T}, shots={shots}")
-    print(f"Save results with: save_job_result('{job.job_id()}', distance={distance}, T={T}, shots={shots})")
     return job
 
 
 def save_job_result(job_id: str, distance: int, T: int, shots: int):
     """
-    Retrieve a completed job and save results to JSON.
+    Retrieve a completed IBM job and save results to JSON.
     """
     service = get_runtime_service()
-    job = service.job(job_id)
-    result = job.result()
+    result = service.job(job_id).result()
 
-    output_path = os.path.join("ibm_jobs", f"job_{job_id}_d{distance}_T{T}_shots{shots}.json")
-    with open(output_path, "w") as f:
+    path = job_path(job_id, distance, T, shots)
+    with open(path, "w") as f:
         json.dump(result, f, cls=RuntimeEncoder)
-    print(f"Results saved to {output_path}")
-    return output_path
+    print(f"Results saved to {path}")
+    return path
 
 
 # Adjust params here, uncomment one step at a time.
 if __name__ == "__main__":
-    DISTANCE = 5
-    T = 10        # syndrome rounds
-    SHOTS = 100  # Circuit runs
+    D, T, SHOTS = 3, 2, 10
 
     # 1: Submit to IBM
-    # job = submit_to_ibm(distance=DISTANCE, T=T, shots=SHOTS)
+    submit_to_ibm(distance=D, T=T, shots=SHOTS)
 
     # 2: After job completes, save results (paste your job ID)
-    # save_job_result("d6o3ais3pels73a2ah6g", distance=DISTANCE, T=T, shots=SHOTS)
+    JOB = "d72khp1amkec73a1djdg"
+    #save_job_result(JOB, distance=D, T=T, shots=SHOTS)
 
-    # 3: Decode with GNN-RNN -> see scripts/decode_hardware.py
+    # 3: Decode with GNN-RNN
+    #from ibm_decoder import decode
+    #decode(distance=D, T=T, job_path=job_path(JOB, D, T, SHOTS))

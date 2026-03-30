@@ -47,7 +47,7 @@ def parse_ibm_job(job_path, t, n_data, n_measures, simulator=False):
     # Reverse bit order: IBM MSB-first -> qubit-0 first
     syndromes_nr = syndromes_nr[:, ::-1]
     final_state = final_state[:, ::-1]
-
+    
     # No-reset XOR diffing
     syndromes_nr = syndromes_nr.reshape(-1, t, n_measures)
     diff = (syndromes_nr[:, 1:, :] != syndromes_nr[:, :-1, :]).astype(np.uint8)

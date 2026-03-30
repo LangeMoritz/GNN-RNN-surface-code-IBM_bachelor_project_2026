@@ -1,8 +1,10 @@
+import os
 import numpy as np
 import torch
 from torch_geometric.nn.pool import knn_graph
 from surface_code_miami import SurfaceCodeCircuit, X_ORDER, Z_ORDER
 from ibm_utils import parse_ibm_job
+import sys
 
 
 class IBMJobDecoder:
@@ -51,14 +53,8 @@ class IBMJobDecoder:
             self._detector_coords[i] = [logical_x, logical_y, is_x, 1.0 - is_x]
 
     def _load_job_data(self):
-        """Parse IBM job JSON into detection events and logical flips.
-        
-        Z-stabilizers: final_syndrome = parity of data qubits.
-          initial 0. 
-        X-stabilizers: data qubits are measured in Z-basis.
-          - initial = first ancilla measurement 
-          - final   = last ancilla measurement   
-          so diff at t=0 is 0
+        """
+        Parse IBM job JSON into detection events and logical flips.
         """
         n_data = self.distance ** 2
         final_state, syndromes = parse_ibm_job(
@@ -67,29 +63,37 @@ class IBMJobDecoder:
 
         actual_shots = final_state.shape[0]
         
-        final_syndrome = np.zeros((actual_shots, self.num_ancilla), dtype=np.uint8)
         initial = np.zeros((actual_shots, 1, self.num_ancilla), dtype=np.uint8)
+        final_syndrome = np.zeros((actual_shots, self.num_ancilla), dtype=np.uint8)
+        
         for anc_i, data_indices in self._stabilizer_data.items():
-            if anc_i in self.x_type:
+            # X-type, use first and last data qubit measurements
+            if anc_i in self.x_type:    
                 initial[:, 0, anc_i] = syndromes[:, 0, anc_i]
                 final_syndrome[:, anc_i] = syndromes[:, -1, anc_i]
             else:
+                # Z-type, XOR together all data qubit readout values that are neighbour of that Z-stabilizer
                 parity = np.zeros(actual_shots, dtype=np.uint8)
                 for d_i in data_indices:
                     parity ^= final_state[:, d_i]
                 final_syndrome[:, anc_i] = parity
-
         # Detection events = XOR between consecutive syndrome rounds
         # Stack: initial | t rounds | final
         all_syndromes = np.concatenate(
             [initial, syndromes, final_syndrome[:, np.newaxis, :]], axis=1
         )
-        self.detections = np.diff(all_syndromes, axis=1).astype(bool)
+
+        # current col xor previous col
+        self.detections = (all_syndromes[:, 1:, :] != all_syndromes[:, :-1, :])
+        #self.detections = np.diff(all_syndromes, axis=1).astype(bool)
 
         # Logical observable: parity of first column of data qubits (Z-basis)
-        logical_qubits = list(range(0, self.distance ** 2, self.distance))
+        # !!!!!!! logical_qubits = list(range(0, self.distance ** 2, self.distance))  # [0, 3, 6]
+        logical_qubits = list(range(self.distance))  # [0, 1, 2] for d=3
         self.logical_flips = np.zeros(actual_shots, dtype=np.int32)
         for q in logical_qubits:
+            # logical_flips = XOR of those logical qubits. 
+            # If 1 a logical error occurred. The label that the GNN-RNN tries to predict
             self.logical_flips ^= final_state[:, q].astype(np.int32)
 
     def _get_node_features(self, detection_batch):
@@ -150,6 +154,7 @@ class IBMJobDecoder:
                 bit- or phase-flip has occured. 1 if it has, 0 otherwise. 
         """
         self._load_job_data()
+        
 
         # Filter shots with at least one detection event
         has_event = np.any(self.detections.reshape(len(self.detections), -1), axis=1)
@@ -199,15 +204,12 @@ class IBMJobDecoder:
         return node_features, edge_index, labels, label_map, edge_attr, flips
 
 
-if __name__ == "__main__":
+def decode(distance: int, T: int, job_path: str):
     from gru_decoder import GRUDecoder
     from args import Args
 
-    DISTANCE = 5
-    T = 10
-
     args = Args(
-        distance=DISTANCE,
+        distance=distance,
         dt=2,
         embedding_features=[5, 32, 64, 128, 256],
         hidden_size=128,
@@ -215,14 +217,11 @@ if __name__ == "__main__":
     )
 
     model = GRUDecoder(args)
-    model.load_state_dict(torch.load("./models/distance5.pt", weights_only=True))
+    model.load_state_dict(torch.load(f"./models/distance{distance}.pt", weights_only=True))
     model.eval()
 
-    sc = SurfaceCodeCircuit(distance=DISTANCE, T=T)
-    
-    # Replace job_path with the actual path to your job file
-    dataset = IBMJobDecoder(sc, job_path="ibm_jobs/job_d6o3ais3pels73a2ah6g.json", dt=args.dt, k=args.k)
-
+    sc = SurfaceCodeCircuit(distance=distance, T=T)
+    dataset = IBMJobDecoder(sc, job_path=job_path, dt=args.dt, k=args.k)
     x, edge_index, labels, label_map, edge_attr, flips = dataset.generate_batch()
 
     with torch.no_grad():
@@ -231,3 +230,58 @@ if __name__ == "__main__":
     predicted_flips = torch.round(predictions).int()
     accuracy = (predicted_flips.squeeze() == flips.squeeze()).float().mean()
     print(f"GNN-RNN accuracy on hardware data: {accuracy:.4f}")
+    return accuracy
+
+def decode_mwpm(distance: int, T: int, job_path: str):
+    import pymatching
+    from build_dem_from_detection_events import build_dem_from_ibm_detection_events
+
+    sc = SurfaceCodeCircuit(distance=distance, T=T)
+    dataset = IBMJobDecoder(sc, job_path=job_path, dt=2, k=20)
+    dataset._load_job_data()
+
+    # detections: (shots, T+1, num_ancilla)
+    # stim's rotated_memory_z with rounds=T has T*num_ancilla detectors —
+    # the final boundary layer (round_T XOR final_syndrome) is encoded in
+    # the logical observable, not as detectors, so drop it here.
+    det_flat = dataset.detections[:, :T, :].reshape(len(dataset.detections), -1).astype(np.uint8)
+
+    dem = build_dem_from_ibm_detection_events(distance, T, det_flat)
+    matcher = pymatching.Matching.from_detector_error_model(dem)
+    predictions = matcher.decode_batch(det_flat)
+
+    accuracy = np.mean(predictions == dataset.logical_flips)
+    print(f"MWPM accuracy on hardware data: {accuracy:.4f}")
+    return accuracy
+
+
+# if __name__ == "__main__":
+#     from surface_code_miami import job_path
+#     D, T, SHOTS = 3, 2, 50
+#     JOB = "d72khp1amkec73a1djdg"
+#     decode(distance=D, T=T, job_path=job_path(JOB, D, T, SHOTS))
+
+if __name__ == "__main__":
+    from surface_code_miami import SurfaceCodeCircuit, job_path
+
+    D, T, SHOTS = 3, 2, 50
+    JOB = "d72khp1amkec73a1djdg"
+
+    sc = SurfaceCodeCircuit(distance=D, T=T)
+    dataset = IBMJobDecoder(sc, job_path=job_path(JOB, D, T, SHOTS), dt=2, k=20)
+    dataset._load_job_data()
+
+    print(f"Raw logical flip rate: {dataset.logical_flips.mean():.3f}")
+
+    n_correct_trivial = (dataset.logical_flips == 0).sum()
+    print(f"Trivial decoder accuracy: {n_correct_trivial / len(dataset.logical_flips):.3f}")
+
+    det_flat = dataset.detections.reshape(len(dataset.detections), -1)
+    print(f"Shots with any detection: {np.any(det_flat, axis=1).mean():.3f}")
+    print(f"Mean detectors fired: {det_flat.sum(axis=1).mean():.1f}")
+
+    for r in range(dataset.detections.shape[1]):
+        print(f"Round {r}: {dataset.detections[:, r, :].mean(axis=0).round(3)}")
+
+    print()
+    decode_mwpm(distance=D, T=T, job_path=job_path(JOB, D, T, SHOTS))
