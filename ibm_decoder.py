@@ -3,6 +3,9 @@ import torch
 from torch_geometric.nn.pool import knn_graph
 from surface_code_miami import SurfaceCodeCircuit, X_ORDER, Z_ORDER
 from ibm_utils import parse_ibm_job
+import torch
+
+
 
 
 class IBMJobDecoder:
@@ -10,7 +13,7 @@ class IBMJobDecoder:
     Loads IBM hardware job results and produces GNN-ready batches
     in the same format as data.py Dataset.generate_batch().
     """
-
+    np.set_printoptions(threshold=np.inf)
     def __init__(self, sc: SurfaceCodeCircuit, job_path: str,
                  simulator: bool = False, k: int = 20, dt: int = 2,
                  norm: float = torch.inf,
@@ -24,7 +27,7 @@ class IBMJobDecoder:
         self.k = k
         self.dt = dt
         self.norm = norm
-        self.device = device or torch.device("cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # Build stabilizer-to-data-qubit map for final syndrome reconstruction, almost same as in surface_code_miami.py
         self._stabilizer_data = {}
@@ -60,6 +63,8 @@ class IBMJobDecoder:
           - final   = last ancilla measurement   
           so diff at t=0 is 0
         """
+        
+
         n_data = self.distance ** 2
         final_state, syndromes = parse_ibm_job(
             self.job_path, self.t, n_data, self.num_ancilla, self.simulator
@@ -69,28 +74,54 @@ class IBMJobDecoder:
         
         final_syndrome = np.zeros((actual_shots, self.num_ancilla), dtype=np.uint8)
         initial = np.zeros((actual_shots, 1, self.num_ancilla), dtype=np.uint8)
+        ancilla_z_indices = []
         for anc_i, data_indices in self._stabilizer_data.items():
             if anc_i in self.x_type:
-                initial[:, 0, anc_i] = syndromes[:, 0, anc_i]
-                final_syndrome[:, anc_i] = syndromes[:, -1, anc_i]
+                pass
             else:
+                ancilla_z_indices.append(anc_i)
                 parity = np.zeros(actual_shots, dtype=np.uint8)
+                initial[:, 0, anc_i] = syndromes[:, 0, anc_i]
                 for d_i in data_indices:
                     parity ^= final_state[:, d_i]
+                    print(final_state)
                 final_syndrome[:, anc_i] = parity
+
 
         # Detection events = XOR between consecutive syndrome rounds
         # Stack: initial | t rounds | final
-        all_syndromes = np.concatenate(
-            [initial, syndromes, final_syndrome[:, np.newaxis, :]], axis=1
-        )
-        self.detections = np.diff(all_syndromes, axis=1).astype(bool)
+        # all_syndromes = np.concatenate( 
+        #     [initial, syndromes[:, 1:-1, :], final_syndrome[:, np.newaxis, :]], axis=1
+        # )
+
+        # Initial detection, only xoring for z type ancillas for t=0 and t=1
+        initialdiff = initial.copy()
+        initialdiff[:, 0, ancilla_z_indices] = initialdiff[:, 0, ancilla_z_indices] ^ syndromes[:, 1, ancilla_z_indices]
+        initialdetections_ = initialdiff.astype(bool)
+
+        # Final detection, only xoring for z type ancillas for t=9 and t=10 (reconstructed)
+        final_syndrome_b = final_syndrome[:, np.newaxis, :]
+        finaldiff = final_syndrome_b.copy()
+        finaldiff[:, 0, ancilla_z_indices] = finaldiff[:, 0, ancilla_z_indices] ^ syndromes[:, -2, ancilla_z_indices]
+        finaldetections_ = finaldiff.astype(bool)
+
+        
+        # Dections in middle of measurements where both x and z types can be compared (no special treatment)
+        middledetections_ = np.diff(syndromes[:, 1:-1, :], axis=1).astype(bool)
+
+
+        #self.detections = np.diff(all_syndromes, axis=1).astype(bool)
+        self.detections = np.concatenate([initialdetections_, middledetections_, finaldetections_], axis=1)
+        print(self.detections.shape)
+      
 
         # Logical observable: parity of first column of data qubits (Z-basis)
-        logical_qubits = list(range(0, self.distance ** 2, self.distance))
+        logical_qubits = list(range(self.distance))
         self.logical_flips = np.zeros(actual_shots, dtype=np.int32)
         for q in logical_qubits:
             self.logical_flips ^= final_state[:, q].astype(np.int32)
+
+
 
     def _get_node_features(self, detection_batch):
         """
@@ -231,3 +262,8 @@ if __name__ == "__main__":
     predicted_flips = torch.round(predictions).int()
     accuracy = (predicted_flips.squeeze() == flips.squeeze()).float().mean()
     print(f"GNN-RNN accuracy on hardware data: {accuracy:.4f}")
+
+test_decode = IBMJobDecoder(
+    sc=SurfaceCodeCircuit(distance=5, T=10),
+    job_path="ibm_jobs/job_d6o3ais3pels73a2ah6g.json"
+)
