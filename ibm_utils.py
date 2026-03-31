@@ -1,6 +1,5 @@
 import json
 from collections import Counter
-
 import numpy as np
 from qiskit_ibm_runtime import RuntimeDecoder
 
@@ -15,8 +14,13 @@ def parse_ibm_job(job_path, t, n_data, n_measures, simulator=False):
 
     Returns
     -------
-    final_state : np.ndarray, shape (shots, n_data), dtype uint8
-    syndromes : np.ndarray, shape (shots, t, n_measures), dtype uint8
+    final_state   : np.ndarray, shape (shots, n_data), dtype uint8
+    syndromes     : np.ndarray, shape (shots, t, n_measures), dtype uint8
+        XOR-diffed syndromes (no-reset correction applied).
+    syndromes_raw : np.ndarray, shape (shots, t, n_measures), dtype uint8
+        Raw (undiffed) syndrome measurements. Needed for ancillas
+        where diffing is inappropriate (e.g. X-type ancillas that
+        receive a Hadamard between rounds, effectively resetting them).
     """
     with open(job_path) as f:
         data = json.load(f, cls=RuntimeDecoder)
@@ -47,11 +51,16 @@ def parse_ibm_job(job_path, t, n_data, n_measures, simulator=False):
     # Reverse bit order: IBM MSB-first -> qubit-0 first
     syndromes_nr = syndromes_nr[:, ::-1]
     final_state = final_state[:, ::-1]
-    
-    # No-reset XOR diffing
+
+    # Reshape into (shots, t, n_measures)
     syndromes_nr = syndromes_nr.reshape(-1, t, n_measures)
+
+    # Keep a raw copy BEFORE diffing
+    syndromes_raw = syndromes_nr.copy()
+
+    # No-reset XOR diffing
     diff = (syndromes_nr[:, 1:, :] != syndromes_nr[:, :-1, :]).astype(np.uint8)
     first = syndromes_nr[:, :1, :]
     syndromes = np.concatenate([first, diff], axis=1)
 
-    return final_state, syndromes
+    return final_state, syndromes, syndromes_raw
