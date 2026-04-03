@@ -43,18 +43,20 @@ class GRUDecoder(nn.Module):
         return self.decoder(h[-1]) 
 
     def train_model(
-            self, 
-            logger: TrainingLogger | None = None, 
-            save: str | None = None
+            self,
+            logger: TrainingLogger | None = None,
+            save: str | None = None,
+            dataset: Dataset | None = None,
         ) -> None:
         local_log = isinstance(logger, TrainingLogger)
         best_model = self.state_dict()
 
         if local_log:
             logger.on_training_begin(self.args)
-        
+
         self.train()
-        dataset = Dataset(self.args)
+        if dataset is None:
+            dataset = Dataset(self.args)
         optim = torch.optim.Adam(self.parameters(), lr=self.args.lr)
         schedule = lambda epoch: max(0.95 ** epoch, self.args.min_lr / self.args.lr)
         scheduler = LambdaLR(optim, lr_lambda=schedule)

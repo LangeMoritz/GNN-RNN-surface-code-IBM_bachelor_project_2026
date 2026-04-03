@@ -17,26 +17,27 @@ Z_ORDER = [W, S, N, E]
 # Physical qubit positions and X-type ancilla indices per distance
 CHIP_MAP = {
     3: {
-        "data":    [50, 41, 32, 61, 52, 43, 72, 63, 54],
-        "ancilla": [51, 42, 62, 53, 40, 64, 33, 71],
-        "x_type":  {1, 2, 4, 5},
+        "data":    [32, 23, 14, 43, 34, 25, 54, 45, 36],
+        "ancilla": [13, 42, 33, 24, 44, 35, 26, 55],
+        "x_type":  {0, 2, 5, 7}, 
     },
     5: {
         "data": [
-            50, 41, 32, 23, 14,
-            61, 52, 43, 34, 25,
-            72, 63, 54, 45, 36,
-            83, 74, 65, 56, 47,
-            94, 85, 76, 67, 58,
+            41, 32, 23, 14, 5,
+            52, 43, 34, 25, 16,
+            63, 54, 45, 36, 27,
+            74, 65, 56, 47, 38,
+            85, 76, 67, 58, 49,
         ],
         "ancilla": [
-            51, 42, 33, 24, 40,
-            22, 62, 53, 44, 35,
-            15, 71, 73, 64, 55,
-            46, 37, 93, 84, 75,
-            66, 57, 86, 68,
+            22, 4,
+            51, 42, 33, 24, 15,
+            53, 44, 35, 26, 17,
+            73, 64, 55, 46, 37,
+            75, 66, 57, 48, 39,
+            86, 68,
         ],
-        "x_type": {1, 3, 4, 5, 6, 8, 13, 15, 18, 20, 22, 23}, # TODO
+        "x_type": {0, 1, 3, 5, 8, 10, 13, 15, 18, 20, 22, 23}, # dubbelkolla
     },
 }
 
@@ -63,6 +64,7 @@ class SurfaceCodeCircuit:
         self.data_idx = {phys: i for i, phys in enumerate(self.data_physical)}
         self.data_set = set(self.data_physical)
 
+        # Default: False
         if self._xbasis:
             self.circuit.h(self.code_qubit)
 
@@ -103,17 +105,17 @@ class SurfaceCodeCircuit:
                     else:
                         self.circuit.cx(self.code_qubit[dat_i], self.measure_qubit[anc_i])
 
-        # H on X-type ancillas
         self.circuit.barrier()
+        # H on X-type ancillas
         for i in range(num_ancilla):
             if i in self.x_type:
                 self.circuit.h(self.measure_qubit[i])
 
         # Measure all ancillas
-        self.circuit.barrier()
         for j in range(num_ancilla):
             self.circuit.measure(self.measure_qubit[j], self.measure_bits[self.T][j])
 
+        # self.circuit.barrier()
         self.T += 1
 
     def readout(self):
@@ -174,14 +176,14 @@ def save_job_result(job_id: str, distance: int, T: int, shots: int):
 
 # Adjust params here, uncomment one step at a time.
 if __name__ == "__main__":
-    D, T, SHOTS = 3, 10, 500
+    D, T, SHOTS = 3, 10, 100000
 
     # 1: Submit to IBM
     #submit_to_ibm(distance=D, T=T, shots=SHOTS)
 
     # 2: After job completes, save results (paste your job ID)
-    JOB = "d7553d5bjrds73ebv3s0"
-    save_job_result(JOB, distance=D, T=T, shots=SHOTS)
+    JOB = "d777qp46ji0c738cgnbg"
+    #save_job_result(JOB, distance=D, T=T, shots=SHOTS)
 
     # 3: Decode with GNN-RNN
     #from ibm_decoder import decode

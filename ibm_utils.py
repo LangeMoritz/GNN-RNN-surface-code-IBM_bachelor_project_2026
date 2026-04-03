@@ -9,18 +9,17 @@ def parse_ibm_job(job_path, t, n_data, n_measures, simulator=False):
     Parse IBM job JSON into final data-qubit states and virtual-reset syndromes.
 
     Handles both simulator (get_counts) and hardware (per-register bitstrings),
-    expands compressed counts, reverses IBM's MSB-first bit order, and applies
-    no-reset XOR diffing.
+    expands compressed counts, converts IBM's MSB-first ordering to qubit-0-first
+    ordering, and applies no-reset XOR diffing on syndrome rounds.
 
     Returns
     -------
     final_state   : np.ndarray, shape (shots, n_data), dtype uint8
+        Final Z-basis readout of data qubits (qubit-0 first).
     syndromes     : np.ndarray, shape (shots, t, n_measures), dtype uint8
-        XOR-diffed syndromes (no-reset correction applied).
-    syndromes_raw : np.ndarray, shape (shots, t, n_measures), dtype uint8
-        Raw (undiffed) syndrome measurements. Needed for ancillas
-        where diffing is inappropriate (e.g. X-type ancillas that
-        receive a Hadamard between rounds, effectively resetting them).
+        Virtual-reset syndromes where syndromes[:, 0, :] is the first raw
+        measurement round and later rounds are XOR differences between
+        consecutive raw rounds.
     """
     with open(job_path) as f:
         data = json.load(f, cls=RuntimeDecoder)
@@ -47,20 +46,20 @@ def parse_ibm_job(job_path, t, n_data, n_measures, simulator=False):
 
     final_state = np.repeat(final_state, freqs, axis=0)
     syndromes_nr = np.repeat(syndromes_nr, freqs, axis=0)
-
-    # Reverse bit order: IBM MSB-first -> qubit-0 first
-    syndromes_nr = syndromes_nr[:, ::-1]
+    
+    # Reverse data-qubit order: IBM MSB-first -> qubit-0 first
     final_state = final_state[:, ::-1]
 
-    # Reshape into (shots, t, n_measures)
+    # Reshape flat syndrome bits into rounds, then reverse ancilla bit order
+    # within each round (do not reverse round order).
     syndromes_nr = syndromes_nr.reshape(-1, t, n_measures)
-
-    # Keep a raw copy BEFORE diffing
-    syndromes_raw = syndromes_nr.copy()
-
+    syndromes_nr = syndromes_nr[:, :, ::-1]
+    
     # No-reset XOR diffing
     diff = (syndromes_nr[:, 1:, :] != syndromes_nr[:, :-1, :]).astype(np.uint8)
     first = syndromes_nr[:, :1, :]
     syndromes = np.concatenate([first, diff], axis=1)
 
-    return final_state, syndromes, syndromes_raw
+    return final_state, syndromes
+
+    

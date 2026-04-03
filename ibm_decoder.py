@@ -15,7 +15,7 @@ class IBMJobDecoder:
 
     def __init__(self, sc: SurfaceCodeCircuit, job_path: str,
                  simulator: bool = False, k: int = 20, dt: int = 2,
-                 norm: float = torch.inf,
+                 norm: float = torch.inf, batch_size: int = 2048,
                  device: torch.device = None):
         self.distance = sc.distance
         self.t = sc.T
@@ -26,9 +26,10 @@ class IBMJobDecoder:
         self.k = k
         self.dt = dt
         self.norm = norm
+        self.batch_size = batch_size
         self.device = device or torch.device("cpu")
-
-        # Build stabilizer-to-data-qubit map for final syndrome reconstruction, almost same as in surface_code_miami.py
+        
+        # Build stabilizer-to-data-qubit map for final syndrome reconstruction
         self._stabilizer_data = {}
         for anc_i, anc_p in enumerate(sc.ancilla_physical):
             is_x = anc_i in sc.x_type
@@ -55,51 +56,46 @@ class IBMJobDecoder:
     def _load_job_data(self):
         """
         Parse IBM job JSON into detection events and logical flips.
-
-        Key insight for IBM hardware (no-reset mid-circuit measurement):
-
-        Z-type ancillas stay in the computational basis between rounds.
-        Their measurements accumulate, so XOR-diffing between consecutive
-        rounds recovers the true single-round syndrome. → use diffed syndromes.
-
-        X-type ancillas receive a Hadamard gate between rounds, which
-        effectively resets them. Each round's measurement is independent,
-        so diffing produces garbage (~50% random firing). → use raw syndromes.
         """
+        if hasattr(self, 'detections'):
+            return
+
         n_data = self.distance ** 2
-        final_state, syndromes, syndromes_raw = parse_ibm_job(
-            self.job_path, self.t, n_data, self.num_ancilla, self.simulator
+        final_state, syndromes = parse_ibm_job(
+            self.job_path,
+            self.t,
+            n_data,
+            self.num_ancilla,
+            self.simulator,
         )
 
         actual_shots = final_state.shape[0]
 
-        # ---- Z-type: detection events via XOR-diffing ----
-        # Z-type ancillas accumulate (no reset), so diffing recovers the
-        # true single-round syndrome. Build: initial(0) | diffed rounds | final(parity).
+        # ---- Build initial and final syndrome references ----
+        # X-type: no ground truth, use first/last measured syndrome as reference (XOR cancels → no detection)
+        # Z-type: initial is 0 (|0⟩ state), final is reconstructed from data qubit parity
         initial = np.zeros((actual_shots, 1, self.num_ancilla), dtype=np.uint8)
         final_syndrome = np.zeros((actual_shots, self.num_ancilla), dtype=np.uint8)
 
         for anc_i, data_indices in self._stabilizer_data.items():
-            if anc_i not in self.x_type:
-                # Z-type: reconstruct final syndrome from data qubit parity.
+            if anc_i in self.x_type:
+                initial[:, 0, anc_i] = syndromes[:, 0, anc_i]
+                final_syndrome[:, anc_i] = syndromes[:, -1, anc_i]
+            else:
                 parity = np.zeros(actual_shots, dtype=np.uint8)
                 for d_i in data_indices:
                     parity ^= final_state[:, d_i]
                 final_syndrome[:, anc_i] = parity
 
-        all_syndromes = np.concatenate(
-            [initial, syndromes, final_syndrome[:, np.newaxis, :]], axis=1
-        )
-        # XOR between consecutive rounds → detection events
-        self.detections = (all_syndromes[:, 1:, :] != all_syndromes[:, :-1, :])
+        # ---- Detection events = XOR between consecutive syndrome rounds ----
+        initial_det = initial ^ syndromes[:, :1, :]
+        middle_det = syndromes[:, :-1, :] ^ syndromes[:, 1:, :]
+        final_det = final_syndrome[:, np.newaxis, :] ^ syndromes[:, -1:, :]
 
-        # After computing self.detections, zero out X-type
-        for anc_i in self.x_type:
-            self.detections[:, :, anc_i] = False
-
-        # ---- Logical observable ----
-        # Z-basis readout: top boundary row detects X/bit-flip errors
-        logical_qubits = list(range(self.distance))  # [0, 1, 2] for d=3
+        self.detections = np.concatenate([initial_det, middle_det, final_det], axis=1).astype(bool)
+        
+        # ---- Logical observable (top row) ----
+        logical_qubits = list(range(self.distance))
         self.logical_flips = np.zeros(actual_shots, dtype=np.int32)
         for q in logical_qubits:
             self.logical_flips ^= final_state[:, q].astype(np.int32)
@@ -127,49 +123,35 @@ class IBMJobDecoder:
         Returns edges between nodes. The edges are of shape [n_edges, 2].
         Use ord=torch.inf for the supremum norm, ord=2 for euclidean norm.
         """
-        # Compute edges.
         edge_index = knn_graph(node_features, self.k, batch=labels)
         delta = node_features[edge_index[1]] - node_features[edge_index[0]]
-
-        # Compute the distances between the nodes:
         edge_attr = torch.linalg.norm(delta, ord=self.norm, dim=1)
-
-        # Inverse square of the norm between two nodes.
         edge_attr = 1 / edge_attr ** 2
         return edge_index, edge_attr
 
-    def generate_batch(self, batch_size=2048):
+    def generate_batch(self):
         """
-        Generates a batch of graphs. 
+        Generates a batch of graphs.
 
-        Returns: 
+        Returns:
             node_features: tensor of shape [n, 5] ([x, y, t, (stabilizer type)]).
-            edge_index: tensor of shape [n_edges, 2]. Represents the edges, 
-                i.e. the adjacency matrix. 
-            labels: tensor of shape [n]. Represents which node features belong
-                to which combination of batch element and chunk. 
-                This is used when computing global_mean_pool following
-                graph convolutions. The reason being there is no 
-                explicit batch dimension. Therefore, a list of 
-                labels is needed to keep track of which node features
-                belong to which batch element. Further, each batch element
-                consists of multiple graphs, or chunks. Therefore, an integer
-                is assigned to each combination of batch element and chunk.
-            label_map: tensor of shape [n_graphs]. Maps labels to
-                [batch element, chunk].  
-            edge_attr: tensor of shape [n_edges]. Represents the edge weights. 
-            flips: tensor of shape [batch size]. Indicates if a logical 
-                bit- or phase-flip has occured. 1 if it has, 0 otherwise. 
+            edge_index: tensor of shape [n_edges, 2].
+            labels: tensor of shape [n].
+            label_map: tensor of shape [n_graphs].
+            edge_attr: tensor of shape [n_edges].
+            flips: tensor of shape [batch size].
         """
         self._load_job_data()
-        
+
+        # Match Stim training detectors: keep only the first T rounds.
+        # detections_gnn = self.detections[:, :self.t, :]
 
         # Filter shots with at least one detection event
         has_event = np.any(self.detections.reshape(len(self.detections), -1), axis=1)
         det_filtered = self.detections[has_event]
         flips_filtered = self.logical_flips[has_event]
 
-        n = min(batch_size, len(det_filtered))
+        n = min(self.batch_size, len(det_filtered))
         indices = np.random.choice(len(det_filtered), n, replace=False)
         det_batch = det_filtered[indices]
         flips_batch = flips_filtered[indices]
@@ -212,24 +194,30 @@ class IBMJobDecoder:
         return node_features, edge_index, labels, label_map, edge_attr, flips
 
 
-def decode(distance: int, T: int, job_path: str):
+def decode(distance: int, T: int, job_path: str, finetuned: bool = False):
     from gru_decoder import GRUDecoder
     from args import Args
-
     args = Args(
         distance=distance,
-        dt=2,
+        dt=5,
         embedding_features=[5, 32, 64, 128, 256],
         hidden_size=128,
         n_layers=4,
     )
 
     model = GRUDecoder(args)
-    model.load_state_dict(torch.load(f"./models/distance{distance}.pt", weights_only=True))
+    model_path = f"./models/distance{distance}_ibm.pt" if finetuned else f"./models/distance{distance}.pt"
+    ckpt = torch.load(model_path, weights_only=False)
+    model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
     model.eval()
 
     sc = SurfaceCodeCircuit(distance=distance, T=T)
-    dataset = IBMJobDecoder(sc, job_path=job_path, dt=args.dt, k=args.k)
+    dataset = IBMJobDecoder(
+        sc,
+        job_path=job_path,
+        dt=args.dt,
+        k=args.k,
+    )
     x, edge_index, labels, label_map, edge_attr, flips = dataset.generate_batch()
 
     with torch.no_grad():
@@ -240,35 +228,29 @@ def decode(distance: int, T: int, job_path: str):
     print(f"GNN-RNN accuracy on hardware data: {accuracy:.4f}")
     return accuracy
 
-def decode_mwpm(distance: int, T: int, job_path: str):
-    import pymatching
-    from build_dem_from_detection_events import build_dem_from_ibm_detection_events
-
-    sc = SurfaceCodeCircuit(distance=distance, T=T)
-    dataset = IBMJobDecoder(sc, job_path=job_path, dt=2, k=20)
-    dataset._load_job_data()
-
-    # detections: (shots, T+1, num_ancilla)
-    # stim's rotated_memory_z with rounds=T has T*num_ancilla detectors —
-    # the final boundary layer (round_T XOR final_syndrome) is encoded in
-    # the logical observable, not as detectors, so drop it here.
-    det_flat = dataset.detections[:, :T, :].reshape(len(dataset.detections), -1).astype(np.uint8)
-
-    dem = build_dem_from_ibm_detection_events(distance, T, det_flat)
-    matcher = pymatching.Matching.from_detector_error_model(dem)
-    predictions = matcher.decode_batch(det_flat)
-
-    accuracy = np.mean(predictions == dataset.logical_flips)
-    print(f"MWPM accuracy on hardware data: {accuracy:.4f}")
-    return accuracy
 
 if __name__ == "__main__":
 
-    D, T, SHOTS = 3, 2, 50
-    JOB = "ibm_jobs/job_d72khp1amkec73a1djdg_d3_T2_shots50.json"
+    D, T = 3, 10
+    JOB = "ibm_jobs/job_d7767p52b89c73d479pg_d3_T10_shots10000.json"
+
+    sc = SurfaceCodeCircuit(distance=D, T=T)
+    dataset = IBMJobDecoder(sc, job_path=JOB, dt=2, k=20)
+    dataset._load_job_data()
+
+    print(f"Raw logical flip rate: {dataset.logical_flips.mean():.3f}")
+    n_correct_trivial = (dataset.logical_flips == 0).sum()
+    print(f"Trivial decoder accuracy: {n_correct_trivial / len(dataset.logical_flips):.3f}")
+
+    det_flat = dataset.detections.reshape(len(dataset.detections), -1)
+    print(f"Shots with any detection: {np.any(det_flat, axis=1).mean():.3f}")
+    print(f"Mean detectors fired: {det_flat.sum(axis=1).mean():.1f}")
+    np.set_printoptions(linewidth=200)
+
+    # Per-round detection rates: each value is the detection rate for one ancilla (averaged over all shots)
+    for r in range(dataset.detections.shape[1]):
+        print(f"Round {r}: {dataset.detections[:, r, :].mean(axis=0).round(2)}")
 
     # GNN-RNN
-    decode(distance=D, T=T, job_path=JOB)
-
-    # MWPM
-    decode_mwpm(distance=D, T=T, job_path=JOB)
+    #decode(distance=D, T=T, job_path=JOB)
+    decode(distance=D, T=T, job_path=JOB, finetuned=True)
