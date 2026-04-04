@@ -22,7 +22,7 @@ def parse_ibm_job(job_path, t, n_data, n_measures, simulator=False):
         data = json.load(f, cls=RuntimeDecoder)
 
     if simulator:
-        counts = data.get_counts()
+        counts = data["counts"]
     else:
         measure_regs = [f"round_{i}_measure_bit" for i in range(t)]
         all_regs = ["code_bit"] + measure_regs

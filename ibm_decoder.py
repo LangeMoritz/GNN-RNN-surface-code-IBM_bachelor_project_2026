@@ -3,6 +3,9 @@ import torch
 from torch_geometric.nn.pool import knn_graph
 from surface_code_miami import SurfaceCodeCircuit, X_ORDER, Z_ORDER
 from ibm_utils import parse_ibm_job
+import torch
+
+
 
 
 class IBMJobDecoder:
@@ -10,7 +13,7 @@ class IBMJobDecoder:
     Loads IBM hardware job results and produces GNN-ready batches
     in the same format as data.py Dataset.generate_batch().
     """
-
+    np.set_printoptions(threshold=np.inf)
     def __init__(self, sc: SurfaceCodeCircuit, job_path: str,
                  simulator: bool = False, k: int = 20, dt: int = 2,
                  norm: float = torch.inf,
@@ -25,7 +28,6 @@ class IBMJobDecoder:
         self.dt = dt
         self.norm = norm
         self.device = device or torch.device("cpu")
-
         # Build stabilizer-to-data-qubit map for final syndrome reconstruction, almost same as in surface_code_miami.py
         self._stabilizer_data = {}
         for anc_i, anc_p in enumerate(sc.ancilla_physical):
@@ -60,6 +62,8 @@ class IBMJobDecoder:
           - final   = last ancilla measurement   
           so diff at t=0 is 0
         """
+        
+
         n_data = self.distance ** 2
         final_state, syndromes = parse_ibm_job(
             self.job_path, self.t, n_data, self.num_ancilla, self.simulator
@@ -79,18 +83,65 @@ class IBMJobDecoder:
                     parity ^= final_state[:, d_i]
                 final_syndrome[:, anc_i] = parity
 
+
         # Detection events = XOR between consecutive syndrome rounds
         # Stack: initial | t rounds | final
-        all_syndromes = np.concatenate(
-            [initial, syndromes, final_syndrome[:, np.newaxis, :]], axis=1
-        )
-        self.detections = np.diff(all_syndromes, axis=1).astype(bool)
+        # all_syndromes = np.concatenate( 
+        #     [initial, syndromes[:, 1:-1, :], final_syndrome[:, np.newaxis, :]], axis=1
+        # )
+
+        # Initial detection, only xoring for z type ancillas for t=0 and t=1
+        initialdiff = initial.copy()
+        initialdiff[:, 0, :] = initialdiff[:, 0, :] ^ syndromes[:, 0, :]
+        initialdetections_ = initialdiff.astype(bool)
+
+        # Final detection, only xoring for z type ancillas for t=9 and t=10 (reconstructed)
+        final_syndrome_b = final_syndrome[:, np.newaxis, :]
+        finaldiff = final_syndrome_b.copy()
+        finaldiff[:, 0, :] = finaldiff[:, 0, :] ^ syndromes[:, -1, :]
+        finaldetections_ = finaldiff.astype(bool)
+
+        
+        # Dections in middle of measurements where both x and z types can be compared (no special treatment)
+        middlediff = syndromes[:, :-1, :] ^ syndromes[:, 1:, :]
+
+        #self.detections = np.diff(all_syndromes, axis=1).astype(bool)
+        self.detections = np.concatenate([initialdetections_, middlediff, finaldetections_], axis=1).astype(bool)
+        print(syndromes.shape)
+        # print(sum(self.detections[:, :, 0])/5000)
+        # print(sum(self.detections[:, :, 1])/5000)
+        # print(sum(self.detections[:, :, 2])/5000)
+        # print(sum(self.detections[:, :, 3])/5000)
+        # print(sum(self.detections[:, :, 4])/5000)
+        # print(sum(self.detections[:, :, 5])/5000)
+        # print(sum(self.detections[:, :, 6])/5000)
+        # print(sum(self.detections[:, :, 7])/5000)
+        # print(sum(self.detections[:, :, 8])/5000)
+        # print(sum(self.detections[:, :, 9])/5000)
+        # print(sum(self.detections[:, :, 10])/5000)
+        # print(sum(self.detections[:, :, 11])/5000)
+        # print(sum(self.detections[:, :, 12])/5000)
+        # print(sum(self.detections[:, :, 13])/5000)
+        # print(sum(self.detections[:, :, 14])/5000)
+        # print(sum(self.detections[:, :, 15])/5000)
+        # print(sum(self.detections[:, :, 16])/5000)
+        # print(sum(self.detections[:, :, 17])/5000)
+        # print(sum(self.detections[:, :, 18])/5000)
+        # print(sum(self.detections[:, :, 19])/5000)
+        # print(sum(self.detections[:, :, 20])/5000)
+        # print(sum(self.detections[:, :, 21])/5000)
+        # print(sum(self.detections[:, :, 22])/5000)
+        # print(sum(self.detections[:, :, 23])/5000)
+
+      
 
         # Logical observable: parity of first column of data qubits (Z-basis)
-        logical_qubits = list(range(0, self.distance ** 2, self.distance))
+        logical_qubits = list(range(self.distance))
         self.logical_flips = np.zeros(actual_shots, dtype=np.int32)
         for q in logical_qubits:
             self.logical_flips ^= final_state[:, q].astype(np.int32)
+
+
 
     def _get_node_features(self, detection_batch):
         """
@@ -204,7 +255,7 @@ if __name__ == "__main__":
     from args import Args
 
     DISTANCE = 5
-    T = 10
+    T = 5
 
     args = Args(
         distance=DISTANCE,
@@ -221,7 +272,7 @@ if __name__ == "__main__":
     sc = SurfaceCodeCircuit(distance=DISTANCE, T=T)
     
     # Replace job_path with the actual path to your job file
-    dataset = IBMJobDecoder(sc, job_path="ibm_jobs/job_d6o3ais3pels73a2ah6g.json", dt=args.dt, k=args.k)
+    dataset = IBMJobDecoder(sc, job_path="ibm_jobs/job_d76p3fmr8g3s73d90gq0_d5_T5_shots5000.json", dt=args.dt, k=args.k)
 
     x, edge_index, labels, label_map, edge_attr, flips = dataset.generate_batch()
 
@@ -231,3 +282,8 @@ if __name__ == "__main__":
     predicted_flips = torch.round(predictions).int()
     accuracy = (predicted_flips.squeeze() == flips.squeeze()).float().mean()
     print(f"GNN-RNN accuracy on hardware data: {accuracy:.4f}")
+
+test_decode = IBMJobDecoder(
+    sc=SurfaceCodeCircuit(distance=5, T=5),
+    job_path="ibm_jobs/job_d76p3fmr8g3s73d90gq0_d5_T5_shots5000.json"
+)

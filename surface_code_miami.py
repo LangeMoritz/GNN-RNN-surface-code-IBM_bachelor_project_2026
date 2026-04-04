@@ -23,20 +23,21 @@ CHIP_MAP = {
     },
     5: {
         "data": [
-            50, 41, 32, 23, 14,
-            61, 52, 43, 34, 25,
-            72, 63, 54, 45, 36,
-            83, 74, 65, 56, 47,
-            94, 85, 76, 67, 58,
+            41, 32, 23, 14, 5,
+            52, 43, 34, 25, 16,
+            63, 54, 45, 36, 27,
+            74, 65, 56, 47, 38,
+            85, 76, 67, 58, 49,
         ],
         "ancilla": [
-            51, 42, 33, 24, 40,
-            22, 62, 53, 44, 35,
-            15, 71, 73, 64, 55,
-            46, 37, 93, 84, 75,
-            66, 57, 86, 68,
+            22, 4,
+            51, 42, 33, 24, 15,
+            53, 44, 35, 26, 17,
+            73, 64, 55, 46, 37,
+            75, 66, 57, 48, 39,
+            86, 68,
         ],
-        "x_type": {1, 3, 4, 5, 6, 8, 13, 15, 18, 20, 22, 23}, # dubbelkolla
+        "x_type": {0, 1, 3, 5, 8, 10, 13, 15, 18, 20, 22, 23}, # dubbelkolla
     },
 }
 
@@ -73,11 +74,9 @@ class SurfaceCodeCircuit:
         if self._xbasis:
             self.circuit.h(self.code_qubit)
 
-    
-        for _ in range(T - 1):
+        for _ in range(T):
             self.syndrome_measurement()
         if T != 0:
-            self.syndrome_measurement()
             self.readout()
 
 
@@ -96,8 +95,10 @@ class SurfaceCodeCircuit:
         self.measure_bits.append(mbit)
         self.circuit.add_register(mbit)
 
+        
+
         # H on X-type ancillas
-        for i in range(num_ancilla):
+        for i in range(num_ancilla):    
             if i in self.x_type:
                 self.circuit.h(self.measure_qubit[i])
         
@@ -126,6 +127,7 @@ class SurfaceCodeCircuit:
         self.circuit.barrier()
         for j in range(num_ancilla):
             self.circuit.measure(self.measure_qubit[j], self.measure_bits[self.T][j])
+        
 
         self.T += 1
    
@@ -142,7 +144,7 @@ class SurfaceCodeCircuit:
 
 def get_runtime_service():
     load_dotenv()
-    return QiskitRuntimeService(token=os.getenv("IBM_KEY"), instance="Surface Codes - Bachelor Thesis 2")
+    return QiskitRuntimeService(token="#", instance="Surface Codes - Bachelor Thesis 2")
 
 
 def submit_to_ibm(distance: int, T: int, shots: int):
@@ -160,6 +162,7 @@ def submit_to_ibm(distance: int, T: int, shots: int):
         optimization_level=1,
         seed_transpiler=42,
     )
+    
 
     sampler = Sampler(mode=backend)
     job = sampler.run([transpiled], shots=shots)
@@ -186,13 +189,13 @@ def save_job_result(job_id: str, distance: int, T: int, shots: int):
 # Adjust params here, uncomment one step at a time.
 if __name__ == "__main__":
     DISTANCE = 5
-    T = 10        # syndrome rounds
-    SHOTS = 100  # Circuit runs
+    T = 5        # syndrome rounds
+    SHOTS = 5000  # Circuit runs
 
     # 1: Submit to IBM
     # job = submit_to_ibm(distance=DISTANCE, T=T, shots=SHOTS)
 
     # 2: After job completes, save results (paste your job ID)
-    # save_job_result("d6o3ais3pels73a2ah6g", distance=DISTANCE, T=T, shots=SHOTS)
+    # save_job_result("d76p3fmr8g3s73d90gq0", distance=DISTANCE, T=T, shots=SHOTS)
 
-    # 3: Decode with GNN-RNN -> see scripts/decode_hardware.py
+    # 3: Decode with GNN-RNN -> see scripts/ibm_decoder.py
