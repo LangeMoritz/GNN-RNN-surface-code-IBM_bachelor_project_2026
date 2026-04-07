@@ -72,8 +72,6 @@ class IBMJobDecoder:
         actual_shots = final_state.shape[0]
 
         # ---- Build initial and final syndrome references ----
-        # X-type: no ground truth, use first/last measured syndrome as reference (XOR cancels → no detection)
-        # Z-type: initial is 0 (|0⟩ state), final is reconstructed from data qubit parity
         initial = np.zeros((actual_shots, 1, self.num_ancilla), dtype=np.uint8)
         final_syndrome = np.zeros((actual_shots, self.num_ancilla), dtype=np.uint8)
 
@@ -142,9 +140,6 @@ class IBMJobDecoder:
             flips: tensor of shape [batch size].
         """
         self._load_job_data()
-
-        # Match Stim training detectors: keep only the first T rounds.
-        # detections_gnn = self.detections[:, :self.t, :]
 
         # Filter shots with at least one detection event
         has_event = np.any(self.detections.reshape(len(self.detections), -1), axis=1)
@@ -232,7 +227,7 @@ def decode(distance: int, T: int, job_path: str, finetuned: bool = False):
 if __name__ == "__main__":
 
     D, T = 3, 10
-    JOB = "ibm_jobs/job_d7767p52b89c73d479pg_d3_T10_shots10000.json"
+    JOB = "fine_tune_jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
 
     sc = SurfaceCodeCircuit(distance=D, T=T)
     dataset = IBMJobDecoder(sc, job_path=JOB, dt=2, k=20)
@@ -252,5 +247,10 @@ if __name__ == "__main__":
         print(f"Round {r}: {dataset.detections[:, r, :].mean(axis=0).round(2)}")
 
     # GNN-RNN
-    #decode(distance=D, T=T, job_path=JOB)
-    decode(distance=D, T=T, job_path=JOB, finetuned=True)
+    # Finetuned = True to use trained model, currently only trained on dist 3.
+    decode(
+        distance=D,
+        T=T,
+        job_path=JOB,
+        finetuned=True,
+    )

@@ -130,7 +130,7 @@ class SurfaceCodeCircuit:
 
 
 def job_path(job_id, distance, T, shots):
-    return os.path.join("ibm_jobs", f"job_{job_id}_d{distance}_T{T}_shots{shots}.json")
+    return os.path.join("jobs", f"job_d{distance}_T{T}_shots{shots}_{job_id}_.json")
 
 
 def get_runtime_service():
