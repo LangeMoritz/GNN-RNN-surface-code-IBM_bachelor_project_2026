@@ -62,12 +62,16 @@ class MWPMDecoder:
         job_path: str,
         simulator: bool,
         shots: int,
+        ancilla_physical: list[int] = None,
+        data_physical: list[int] = None,
+        x_type: set[int] = None,
+        code_type: str = "repetition",
     ) -> None:
         """
         Parameters
         ----------
         distance : int
-            Physical code distance (number of data qubits, d = 17 for ibm_kez).
+            Physical code distance (number of data qubits for repetition, or nominal distance for surface).
         t : int
             Number of syndrome measurement rounds.
         job_path : str
@@ -76,13 +80,44 @@ class MWPMDecoder:
             True if data comes from an Aer simulator (uses get_counts() API).
         shots : int
             Nominal shot count; actual count is inferred from the expanded arrays.
+        ancilla_physical : list[int], optional
+            Physical positions of ancilla qubits (for surface code).
+        data_physical : list[int], optional
+            Physical positions of data qubits (for surface code).
+        x_type : set[int], optional
+            Indices of X-type ancillas (0-based in ancilla list, for surface code).
+        code_type : str
+            "repetition" or "surface" to choose the decoding mode.
         """
         self.distance = distance
-        self.n_measures = distance - 1
         self.t = t
         self.job_path = job_path
         self.simulator = simulator
         self.shots = shots
+        self.ancilla_physical = ancilla_physical
+        self.data_physical = data_physical
+        self.x_type = x_type
+        self.code_type = code_type
+
+        if code_type == "surface":
+            if ancilla_physical is None or data_physical is None or x_type is None:
+                raise ValueError("For surface code, ancilla_physical, data_physical, and x_type must be provided")
+            self.n_measures = len(ancilla_physical)
+            self.data_idx = {phys: i for i, phys in enumerate(data_physical)}
+            self.data_set = set(data_physical)
+            # Precompute data measured by each ancilla
+            self.data_measured = []
+            for anc_i, anc_p in enumerate(ancilla_physical):
+                is_x = anc_i in x_type
+                directions = [-1, -10, 10, 1] if is_x else [-1, 10, -10, 1]  # X_ORDER or Z_ORDER
+                measured = []
+                for d in directions:
+                    neighbour = anc_p + d
+                    if neighbour in self.data_set:
+                        measured.append(self.data_idx[neighbour])
+                self.data_measured.append(measured)
+        else:
+            self.n_measures = distance - 1
 
     # ------------------------------------------------------------------
     # Data loading
@@ -113,20 +148,31 @@ class MWPMDecoder:
         self.logical_flips : dict[(d, i)] → np.ndarray, shape (shots,), dtype bool
             True when the left-boundary data qubit was measured as |1⟩.
         """
+        if self.code_type == "surface":
+            n_data = len(self.data_physical)
+        else:
+            n_data = self.distance
         final_state, syndromes = parse_ibm_job(
-            self.job_path, self.t, self.distance, self.distance - 1, self.simulator
+            self.job_path, self.t, n_data, self.n_measures, self.simulator
         )
 
         actual_shots = final_state.shape[0]
-        measures = self.distance - 1
 
         # Virtual initial syndrome (all-zero; valid for |0⟩_L preparation).
-        initial_syndrome = np.zeros((actual_shots, measures), dtype=np.uint8)
+        initial_syndrome = np.zeros((actual_shots, self.n_measures), dtype=np.uint8)
 
-        # Final syndrome: XOR of adjacent data qubits after readout.
-        final_syndrome = final_state[:, :-1] ^ final_state[:, 1:]
+        if self.code_type == "surface":
+            # Final syndrome: inferred from data readout for each ancilla
+            final_syndrome = np.zeros((actual_shots, self.n_measures), dtype=np.uint8)
+            for anc_i in range(self.n_measures):
+                measured_data = self.data_measured[anc_i]
+                if measured_data:
+                    final_syndrome[:, anc_i] = np.sum(final_state[:, measured_data], axis=1) % 2
+        else:
+            # Final syndrome: XOR of adjacent data qubits after readout.
+            final_syndrome = final_state[:, :-1] ^ final_state[:, 1:]
 
-        # Stack into (shots, t+2, d-1): initial | t rounds | final.
+        # Stack into (shots, t+2, n_measures): initial | t rounds | final.
         syndrome_matrix = np.concatenate(
             [
                 initial_syndrome,
@@ -135,25 +181,27 @@ class MWPMDecoder:
             ],
             axis=1,
         )
-        reshaped = syndrome_matrix.reshape(actual_shots, self.t + 2, measures)
+        reshaped = syndrome_matrix.reshape(actual_shots, self.t + 2, self.n_measures)
 
         # Detection events = XOR between consecutive syndrome rounds.
-        # Shape: (shots, t+1, d-1).
+        # Shape: (shots, t+1, n_measures).
         detections = np.diff(reshaped, axis=1).astype(bool)
 
-        # Subsample sub-codes by sliding a (d-1)-wide spatial window.
+        # Subsample sub-codes or use full for surface
         self.partitions: dict = {}
         self.logical_flips: dict = {}
 
-        for d in range(3, self.distance + 1, 2):
-            n_meas = d - 1
-            for i in range(self.distance - d + 1):
-                part = detections[:, :, i : i + n_meas]
-                self.partitions[(d, i)] = part.reshape(actual_shots, -1)
-                # Logical observable: value of the left-boundary data qubit.
-                # Valid for Z-basis decoding where the logical is the first qubit
-                # of the sub-code window.
-                self.logical_flips[(d, i)] = final_state[:, i] == 1
+        if self.code_type == "surface":
+            self.partitions[(self.distance, 0)] = detections.reshape(actual_shots, -1)
+            # Logical observable: parity of data qubits (for logical X in X-basis)
+            self.logical_flips[(self.distance, 0)] = np.sum(final_state, axis=1) % 2 == 1
+        else:
+            for d in range(3, self.distance + 1, 2):
+                n_meas = d - 1
+                for i in range(self.distance - d + 1):
+                    part = detections[:, :, i : i + n_meas]
+                    self.partitions[(d, i)] = part.reshape(actual_shots, -1)
+                    self.logical_flips[(d, i)] = final_state[:, i] == 1
 
     # ------------------------------------------------------------------
     # Edge-weight computation
@@ -307,30 +355,12 @@ class MWPMDecoder:
         """
         Build the PyMatching graph for a sub-code of distance d.
 
-        Node layout
-        -----------
-        Nodes are indexed as  node = t_index * row_len + offset
-        where row_len = d-1 and t_index ∈ {0, …, t}.
-        The grid has (t+1) rows (time) × (d-1) columns (space).
-
-        Edges
-        -----
-        - Space-like  (t, j) — (t, j+1): within a time slice.
-            fault_ids = {j+1}  (the data qubit between ancillas j and j+1).
-        - Time-like   (t, j) — (t+1, j): same ancilla, adjacent time slices.
-            No fault_ids (temporal errors don't cross the logical boundary).
-        - Diagonal    (t, j) — (t+1, j±1): hook-error edges from CNOT circuits.
-            No fault_ids.
-        - Boundary half-edges to virtual boundary node:
-            Left endpoint  fault_ids = {0}       → contributes to predictions[:, 0].
-            Right endpoint fault_ids = {row_len}  → not used in logical prediction.
-
-        Boundary weights are computed via _compute_boundary_prob (XOR inversion).
-        All bulk edge weights are −log(p_ij).
+        For surface code, uses correlation-based edges between ancillas that share data qubits.
+        For repetition, uses 1D adjacency.
 
         Parameters
         ----------
-        detections : np.ndarray, shape (shots, (t+1)*(d-1))
+        detections : np.ndarray, shape (shots, (t+1)*n_measures)
             Flattened detection-event vectors.
         d : int
             Sub-code distance.
@@ -339,7 +369,7 @@ class MWPMDecoder:
         -------
         matcher : pymatching.Matching
         """
-        row_len = d - 1
+        row_len = self.n_measures
         pij, mean_i = self._error_correlation_matrix(detections)
 
         # Clip to (0, 1) before taking log; pij values are in [0, 0.5].
@@ -348,79 +378,139 @@ class MWPMDecoder:
 
         matcher = pymatching.Matching()
 
-        # --- Space-like edges ---
-        for t_index in range(self.t + 1):
-            row_start = t_index * row_len
-            for j in range(row_len - 1):
-                i = row_start + j
-                matcher.add_edge(
-                    i,
-                    i + 1,
-                    weight=weights[i, i + 1],
-                    # fault_id j+1: the data qubit between ancillas j and j+1.
-                    fault_ids={j + 1},
-                    merge_strategy="replace",
-                )
+        if self.code_type == "surface":
+            # Space-like edges: between ancillas that share data qubits
+            for i in range(row_len):
+                for j in range(i + 1, row_len):
+                    shared = set(self.data_measured[i]) & set(self.data_measured[j])
+                    if shared:
+                        matcher.add_edge(
+                            i,
+                            j,
+                            weight=weights[i, j],
+                            fault_ids=shared,
+                            merge_strategy="replace",
+                        )
 
-        # --- Time-like edges ---
-        for t_index in range(self.t):
-            for offset in range(row_len):
-                i = t_index * row_len + offset
-                j = i + row_len
-                matcher.add_edge(
-                    i,
-                    j,
-                    weight=weights[i, j],
-                    merge_strategy="replace",
-                )
-
-        # --- Diagonal (hook-error) edges ---
-        # Connects (t, offset) to (t+1, offset±1) for t in 0..t-1.
-        for t_index in range(self.t):
-            row_start = t_index * row_len
-            for offset in range(row_len):
-                i = row_start + offset
-                # Forward diagonal: (t, offset) → (t+1, offset+1)
-                if offset + 1 < row_len:
+            # Time-like edges
+            for t_index in range(self.t):
+                for offset in range(row_len):
+                    i = t_index * row_len + offset
+                    j = i + row_len
                     matcher.add_edge(
                         i,
-                        i + row_len + 1,
-                        weight=weights[i, i + row_len + 1],
-                        merge_strategy="replace",
-                    )
-                # Backward diagonal: (t, offset) → (t+1, offset-1)
-                if offset - 1 >= 0:
-                    matcher.add_edge(
-                        i,
-                        i + row_len - 1,
-                        weight=weights[i, i + row_len - 1],
+                        j,
+                        weight=weights[i, j],
                         merge_strategy="replace",
                     )
 
-        # --- Boundary half-edges ---
-        # Compute boundary weights using the XOR-channel inversion formula.
-        for t_index in range(self.t + 1):
-            row_start = t_index * row_len
-            left_node = row_start
-            right_node = row_start + row_len - 1
+            # Diagonal edges (adjacent space and time)
+            for t_index in range(self.t):
+                for offset in range(row_len):
+                    i = t_index * row_len + offset
+                    # Forward diagonal
+                    if offset + 1 < row_len:
+                        matcher.add_edge(
+                            i,
+                            i + row_len + 1,
+                            weight=weights[i, i + row_len + 1],
+                            merge_strategy="replace",
+                        )
+                    # Backward diagonal
+                    if offset - 1 >= 0:
+                        matcher.add_edge(
+                            i,
+                            i + row_len - 1,
+                            weight=weights[i, i + row_len - 1],
+                            merge_strategy="replace",
+                        )
 
-            p_left = self._compute_boundary_prob(left_node, row_len, pij, mean_i)
-            p_right = self._compute_boundary_prob(right_node, row_len, pij, mean_i)
+            # Boundary half-edges for surface code
+            rows = [p // 10 for p in self.ancilla_physical]
+            min_row = min(rows)
+            max_row = max(rows)
+            for t_index in range(self.t + 1):
+                for offset in range(row_len):
+                    node = t_index * row_len + offset
+                    anc_p = self.ancilla_physical[offset]
+                    row = anc_p // 10
+                    if row == min_row or row == max_row:  # Top/bottom boundaries for logical X
+                        p_boundary = self._compute_boundary_prob(node, row_len, pij, mean_i)
+                        matcher.add_boundary_edge(
+                            node,
+                            weight=-np.log(p_boundary),
+                            fault_ids={0},
+                            merge_strategy="replace",
+                        )
+        else:
+            # Original repetition code logic
+            row_len = d - 1
+            # Space-like edges
+            for t_index in range(self.t + 1):
+                row_start = t_index * row_len
+                for j in range(row_len - 1):
+                    i = row_start + j
+                    matcher.add_edge(
+                        i,
+                        i + 1,
+                        weight=weights[i, i + 1],
+                        fault_ids={j + 1},
+                        merge_strategy="replace",
+                    )
 
-            # Left boundary: fault_ids={0} marks logical-boundary crossings.
-            matcher.add_boundary_edge(
-                left_node,
-                weight=-np.log(p_left),
-                fault_ids={0},
-                merge_strategy="replace",
-            )
-            # Right boundary: fault_ids={row_len} (unused in logical prediction).
-            matcher.add_boundary_edge(
-                right_node,
-                weight=-np.log(p_right),
-                fault_ids={row_len},
-                merge_strategy="replace",
-            )
+            # Time-like edges
+            for t_index in range(self.t):
+                for offset in range(row_len):
+                    i = t_index * row_len + offset
+                    j = i + row_len
+                    matcher.add_edge(
+                        i,
+                        j,
+                        weight=weights[i, j],
+                        merge_strategy="replace",
+                    )
+
+            # Diagonal edges
+            for t_index in range(self.t):
+                row_start = t_index * row_len
+                for offset in range(row_len):
+                    i = row_start + offset
+                    if offset + 1 < row_len:
+                        matcher.add_edge(
+                            i,
+                            i + row_len + 1,
+                            weight=weights[i, i + row_len + 1],
+                            merge_strategy="replace",
+                        )
+                    if offset - 1 >= 0:
+                        matcher.add_edge(
+                            i,
+                            i + row_len - 1,
+                            weight=weights[i, i + row_len - 1],
+                            merge_strategy="replace",
+                        )
+
+            # Boundary half-edges
+            for t_index in range(self.t + 1):
+                row_start = t_index * row_len
+                left_node = row_start
+                right_node = row_start + row_len - 1
+
+                p_left = self._compute_boundary_prob(left_node, row_len, pij, mean_i)
+                p_right = self._compute_boundary_prob(right_node, row_len, pij, mean_i)
+
+                matcher.add_boundary_edge(
+                    left_node,
+                    weight=-np.log(p_left),
+                    fault_ids={0},
+                    merge_strategy="replace",
+                )
+                matcher.add_boundary_edge(
+                    right_node,
+                    weight=-np.log(p_right),
+                    fault_ids={row_len},
+                    merge_strategy="replace",
+                )
 
         return matcher
 
@@ -503,10 +593,9 @@ class MWPMDecoder:
             )
             P_L[(d, i)] = (1 - accuracy, accuracy_err, pdet_mean)
 
-            if i == 0:
-                print(
-                    f"d={d}, i={i}, pdet={pdet_mean:.4f}, "
-                    f"P_L={1 - accuracy:.6f} ± {accuracy_err:.6f}"
-                )
+            print(
+                f"d={d}, i={i}, pdet={pdet_mean:.4f}, "
+                f"P_L={1 - accuracy:.6f} ± {accuracy_err:.6f}"
+            )
 
         return P_L
