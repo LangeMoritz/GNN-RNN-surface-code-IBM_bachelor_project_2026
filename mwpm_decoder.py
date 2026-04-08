@@ -6,28 +6,31 @@ MWPM (Minimum Weight Perfect Matching) decoder for the surface code on IBM hardw
 Decoding pipeline
 -----------------
 1. Load IBM job data and convert to detection events on a (t+1) × num_ancilla
-   spacetime detector grid, with separate handling for X-type and Z-type stabilizers.
-2. Split detections into X-type and Z-type subsets.
-3. For each type, build a PyMatching graph whose edge weights are derived from
-   pairwise detection correlations (Spitz et al.).
-4. Run batch MWPM decoding on each matcher and compute logical error rates.
+   spacetime detector grid.
+2. Extract Z-type detection events.
+3. Build a PyMatching graph whose edge weights are derived from pairwise
+   detection correlations (Spitz et al.).
+4. Run batch MWPM decoding and compute logical error rates.
 
 Detection event boundaries
 --------------------------
+- Z-type: initial = 0 (known eigenstate |0⟩), final = parity of data qubits in support.
 - X-type: initial = syndromes[:, 0, :] (absorbs random eigenvalue), final = last round.
-- Z-type: initial = 0 (known eigenstate), final = parity of data qubits in support.
+  (X-type detections are computed but not currently decoded.)
 
-Matching graph topology (per stabilizer type)
----------------------------------------------
-Each type has n_anc ancillas. The spacetime grid has (t+1) rows × n_anc columns.
-Node index: node = t_index * n_anc + anc_offset.
+Matching graph topology
+-----------------------
+The Z-type spacetime grid has (t+1) rows × n_z_anc columns.
+Node index: node = t_index * n_z_anc + anc_offset.
 
 Three classes of bulk edges:
   - Space-like:  ancillas that share a data qubit, within the same time slice.
   - Time-like:   same ancilla across adjacent time slices.
   - Diagonal:    adjacent in both space and time (hook errors).
 
-Boundary half-edges connect ancillas at the code boundary to the virtual boundary.
+Boundary half-edges connect ancillas with unshared data qubits to the virtual
+boundary. Ancillas whose unshared qubits overlap with the Z logical operator
+(top row) are tagged with fault_ids={0}.
 """
 
 import numpy as np
@@ -60,6 +63,7 @@ class MWPMDecoder:
         sc: SurfaceCodeCircuit,
         job_path: str,
         simulator: bool = False,
+        pij_threshold: float = 0.0,
     ) -> None:
         self.distance = sc.distance
         self.t = sc.T
@@ -67,14 +71,13 @@ class MWPMDecoder:
         self.x_type = sc.x_type
         self.job_path = job_path
         self.simulator = simulator
+        self.pij_threshold = pij_threshold
 
-        # Indices of X-type and Z-type ancillas
+        # Indices of Z-type ancillas
         self.z_indices = sorted(i for i in range(self.num_ancilla) if i not in self.x_type)
-        self.n_measures = len(self.z_indices)
 
         # Build stabilizer-to-data-qubit map
         self._stabilizer_data = {}
-        self._stabilizer_coords = {}
         for anc_i, anc_p in enumerate(sc.ancilla_physical):
             is_x = anc_i in sc.x_type
             order = X_ORDER if is_x else Z_ORDER
@@ -85,46 +88,30 @@ class MWPMDecoder:
                     neighbors.append(sc.data_idx[nb])
             self._stabilizer_data[anc_i] = neighbors
 
-            # Logical-grid centroid (x=column, y=row) for boundary-side grouping.
-            xs = [d_i % self.distance for d_i in neighbors]
-            ys = [d_i // self.distance for d_i in neighbors]
-            self._stabilizer_coords[anc_i] = (float(np.mean(xs)), float(np.mean(ys)))
-
         # Build spatial adjacency: two Z ancillas are neighbors if they share
         # at least one data qubit.
         self._z_adj = self._build_adjacency(self.z_indices)
 
-        # An ancilla is on the boundary if it has fewer than 4 neighbors.
-        self._z_boundary = {i for i in self.z_indices if len(self._stabilizer_data[i]) < 4}
+        # Data qubits shared between 2+ Z stabilizers (interior qubits).
+        z_data_count: dict[int, int] = {}
+        for anc_i in self.z_indices:
+            for d_i in self._stabilizer_data[anc_i]:
+                z_data_count[d_i] = z_data_count.get(d_i, 0) + 1
+        shared_z_data = {d_i for d_i, c in z_data_count.items() if c >= 2}
 
-        # Top-row parity labels are tracked by one Z-boundary class.
-        self._z_logical_boundary = self._boundary_side(self._z_boundary, axis=0, side="min")
-
-    def _boundary_side(
-        self,
-        boundary_set: set[int],
-        axis: int,
-        side: str,
-        tol: float = 1e-9,
-    ) -> set[int]:
-        """
-        Return one geometric side of a boundary set using stabilizer centroids.
-
-        Parameters
-        ----------
-        boundary_set : set[int]
-            Ancilla indices on the boundary.
-        axis : int
-            0 selects x (left/right), 1 selects y (top/bottom).
-        side : str
-            "min" or "max" along selected axis.
-        """
-        if not boundary_set:
-            return set()
-
-        values = {a: self._stabilizer_coords[a][axis] for a in boundary_set}
-        target = min(values.values()) if side == "min" else max(values.values())
-        return {a for a, v in values.items() if abs(v - target) <= tol}
+        # Boundary = any Z ancilla with at least one unshared data qubit
+        # (covers both rough-boundary weight-2 stabilizers AND smooth-boundary
+        # weight-4 stabilizers that have data qubits on the code edge).
+        z_logical_set = set(range(self.distance))  # top row = Z logical
+        self._z_boundary = set()
+        self._z_logical_boundary = set()
+        for anc_i in self.z_indices:
+            unshared = [d_i for d_i in self._stabilizer_data[anc_i]
+                        if d_i not in shared_z_data]
+            if unshared:
+                self._z_boundary.add(anc_i)
+                if any(d_i in z_logical_set for d_i in unshared):
+                    self._z_logical_boundary.add(anc_i)
 
     def _build_adjacency(self, indices: list[int]) -> dict[int, list[int]]:
         """
@@ -153,13 +140,13 @@ class MWPMDecoder:
         """
         Parse IBM job JSON into detection events and logical flips.
 
-                IBM bitstrings are converted to qubit-ordered arrays by parse_ibm_job,
-                including virtual-reset syndrome extraction via XOR differencing.
+        IBM bitstrings are converted to qubit-ordered arrays by parse_ibm_job,
+        including virtual-reset syndrome extraction via XOR differencing.
 
-                Detection events are built from:
-                    - Initial reference syndrome.
-                    - Round-to-round syndrome changes.
-                    - Final reference syndrome inferred from data readout.
+        Detection events are built from:
+            - Initial reference syndrome.
+            - Round-to-round syndrome changes.
+            - Final reference syndrome inferred from data readout.
 
         Populates
         ---------
@@ -335,7 +322,7 @@ class MWPMDecoder:
 
         row_len = len(anc_list)
         pij, mean_i = self._error_correlation_matrix(detections)
-        pij_safe = np.where(pij > 0, pij, 1e-7)
+        pij_safe = np.where(pij > self.pij_threshold, pij, 1e-7)
         weights = -np.log(pij_safe)
         anc_to_offset = {anc: offset for offset, anc in enumerate(anc_list)}
 
@@ -487,5 +474,5 @@ if __name__ == "__main__":
     JOB = "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
 
     sc = SurfaceCodeCircuit(distance=D, T=T)
-    decoder = MWPMDecoder(sc, job_path=JOB)
+    decoder = MWPMDecoder(sc, job_path=JOB, pij_threshold=0.044)# pij_threshold=0.044 for d=3. pij_threshold=0 for d=5
     p_l, p_l_err = decoder.decode()
