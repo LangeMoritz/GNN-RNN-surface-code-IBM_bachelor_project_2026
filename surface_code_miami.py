@@ -4,6 +4,7 @@ from qiskit_ibm_runtime import QiskitRuntimeService, RuntimeEncoder
 from qiskit_ibm_runtime import SamplerV2 as Sampler
 import json
 import os
+from bit_visualization import generate_chip_map, plot_chip
 from dotenv import load_dotenv
 
 # Physical grid directions (qubit number = row*10 + col)
@@ -176,13 +177,12 @@ def save_job_result(job_id: str, distance: int, T: int, shots: int):
 
 # Adjust params here, uncomment one step at a time.
 if __name__ == "__main__":
-    D, T, SHOTS = 3, 10, 100000
-
+    D, T, SHOTS = 3, 10, 1000
     # 1: Submit to IBM
     #submit_to_ibm(distance=D, T=T, shots=SHOTS)
 
     # 2: After job completes, save results (paste your job ID)
-    JOB = "d777qp46ji0c738cgnbg"
+    #JOB = "d7aq93bklj2c73eub81g"
     #save_job_result(JOB, distance=D, T=T, shots=SHOTS)
 
     # 3: Decode with GNN-RNN
