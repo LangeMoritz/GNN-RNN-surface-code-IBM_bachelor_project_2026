@@ -15,34 +15,6 @@ W, N, S, E = -1, -10, +10, +1
 X_ORDER = [W, N, S, E]
 Z_ORDER = [W, S, N, E]
 
-# Physical qubit positions and X-type ancilla indices per distance
-CHIP_MAP = {
-    3: {
-        "data":    [32, 23, 14, 43, 34, 25, 54, 45, 36],
-        "ancilla": [13, 42, 33, 24, 44, 35, 26, 55],
-        "x_type":  {0, 2, 5, 7}, 
-    },
-    5: {
-        "data": [
-            41, 32, 23, 14, 5,
-            52, 43, 34, 25, 16,
-            63, 54, 45, 36, 27,
-            74, 65, 56, 47, 38,
-            85, 76, 67, 58, 49,
-        ],
-        "ancilla": [
-            22, 4,
-            51, 42, 33, 24, 15,
-            53, 44, 35, 26, 17,
-            73, 64, 55, 46, 37,
-            75, 66, 57, 48, 39,
-            86, 68,
-        ],
-        "x_type": {0, 1, 3, 5, 8, 10, 13, 15, 18, 20, 22, 23}, # dubbelkolla
-    },
-}
-
-
 class SurfaceCodeCircuit:
 
     def __init__(self, distance: int, T: int, xbasis: bool = False):
@@ -50,7 +22,7 @@ class SurfaceCodeCircuit:
         self.T = 0
         self._xbasis = xbasis
 
-        layout = CHIP_MAP[distance]
+        layout = generate_chip_map(distance=distance, corner_qubit=14, x_max=9, y_max=11, visualization=False) # x_max=9, y_max=11 for miami
         self.data_physical = layout["data"]
         self.ancilla_physical = layout["ancilla"]
         self.x_type = layout["x_type"]
