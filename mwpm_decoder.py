@@ -458,12 +458,10 @@ class MWPMDecoder:
         )
 
         p_l = 1 - accuracy
-        trivial_acc = float(np.mean(self.logical_flips == 0))
         print(
             f"d={self.distance}, pdet={pdet_mean:.4f}, "
             f"Acc = {accuracy:.6f} ± {accuracy_err:.6f}, "
             f"P_L={p_l:.6f} ± {accuracy_err:.6f}, "
-            f"trivial_acc={trivial_acc:.6f}"
         )
         return p_l, accuracy_err
 
