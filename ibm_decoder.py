@@ -227,7 +227,7 @@ def decode(distance: int, T: int, job_path: str, finetuned: bool = False):
 if __name__ == "__main__":
 
     D, T = 3, 10
-    JOB = "fine_tune_jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
+    JOB = "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
 
     sc = SurfaceCodeCircuit(distance=D, T=T)
     dataset = IBMJobDecoder(sc, job_path=JOB, dt=2, k=20)
@@ -252,5 +252,5 @@ if __name__ == "__main__":
         distance=D,
         T=T,
         job_path=JOB,
-        finetuned=True,
+        finetuned=False,
     )
