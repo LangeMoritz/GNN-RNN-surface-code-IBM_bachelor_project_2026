@@ -20,7 +20,7 @@ for i in range(1, T+1):
     p_l, p_l_err = decoder.decode()
     accuracy_mwpm = 1 - p_l
     arr_mwpm[i-1] = accuracy_mwpm
-    accuracy_ibm = decode(distance=D,T=T,job_path=JOB, finetuned=False)
+    accuracy_ibm = decode(distance=D,T=new_T,job_path=JOB, finetuned=False)
     arr_ibm[i-1] = accuracy_ibm
 
 
