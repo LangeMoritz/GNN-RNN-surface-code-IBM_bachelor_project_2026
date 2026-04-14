@@ -45,11 +45,12 @@ def parse_ibm_job(job_path, t, n_data, n_measures, simulator=False):
     syndromes_nr = np.repeat(syndromes_nr, freqs, axis=0)
 
     # Reverse bit order: IBM MSB-first -> qubit-0 first
-    syndromes_nr = syndromes_nr[:, ::-1]
+
     final_state = final_state[:, ::-1]
 
     # No-reset XOR diffing
     syndromes_nr = syndromes_nr.reshape(-1, t, n_measures)
+    syndromes_nr = syndromes_nr[:, :, ::-1]
     diff = (syndromes_nr[:, 1:, :] != syndromes_nr[:, :-1, :]).astype(np.uint8)
     first = syndromes_nr[:, :1, :]
     syndromes = np.concatenate([first, diff], axis=1)

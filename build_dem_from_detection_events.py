@@ -151,7 +151,7 @@ def _extract_dem_structure(
     p_ijkl: Dict[Tuple[int, ...], float] = {}
     all_errors: List[Tuple[Tuple[int, ...], List[int]]] = []
 
-    for instruction in dem:
+    for instruction in dem.flattened():
         if instruction.type != "error":
             continue
         targets = instruction.targets_copy()
