@@ -80,12 +80,12 @@ class IBMJobDecoder:
                 initial[:, 0, anc_i] = syndromes[:, 0, anc_i]
                 final_syndrome[:, anc_i] = syndromes[:, -1, anc_i]
             else:
-                parity = np.zeros(actual_shots, dtype=np.uint8)
+                parity = np.zeros(actual_shots, dtype=np.uint8) 
                 for d_i in data_indices:
                     parity ^= final_state[:, d_i]
-                final_syndrome[:, anc_i] = parity
+                final_syndrome[:, anc_i] = parity 
 
-        # ---- Detection events = XOR between consecutive syndrome rounds ----
+        # ---- Detection events = XOR between consecutive syndrome rounds ---- 
         initial_det = initial ^ syndromes[:, :1, :]
         middle_det = syndromes[:, :-1, :] ^ syndromes[:, 1:, :]
         final_det = final_syndrome[:, np.newaxis, :] ^ syndromes[:, -1:, :]
@@ -189,7 +189,7 @@ class IBMJobDecoder:
         return node_features, edge_index, labels, label_map, edge_attr, flips
 
 
-def decode(distance: int, T: int, job_path: str, finetuned: bool = False):
+def decode(distance: int, T: int, job_path: str, corner_qubit: int, finetuned: bool = False):
     from gru_decoder import GRUDecoder
     from args import Args
     args = Args(
@@ -206,7 +206,7 @@ def decode(distance: int, T: int, job_path: str, finetuned: bool = False):
     model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
     model.eval()
 
-    sc = SurfaceCodeCircuit(distance=distance, T=T)
+    sc = SurfaceCodeCircuit(distance=distance, T=T, corner_qubit=corner_qubit)
     dataset = IBMJobDecoder(
         sc,
         job_path=job_path,
@@ -226,10 +226,10 @@ def decode(distance: int, T: int, job_path: str, finetuned: bool = False):
 
 if __name__ == "__main__":
 
-    D, T = 3, 10
-    JOB = "fine_tune_jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
+    D, T, CORNER = 3, 5, 15
+    JOB = "jobs/job_d3_T5_shots100_d7elgdu5nvhs73a6t9m0_corner15.json"
 
-    sc = SurfaceCodeCircuit(distance=D, T=T)
+    sc = SurfaceCodeCircuit(distance=D, T=T, corner_qubit=CORNER)
     dataset = IBMJobDecoder(sc, job_path=JOB, dt=2, k=20)
     dataset._load_job_data()
 
@@ -252,5 +252,6 @@ if __name__ == "__main__":
         distance=D,
         T=T,
         job_path=JOB,
-        finetuned=True,
+        corner_qubit=CORNER,
+        finetuned=False,
     )
