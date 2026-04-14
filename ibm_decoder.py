@@ -5,6 +5,7 @@ import torch
 from qiskit_ibm_runtime import RuntimeDecoder
 from torch_geometric.nn.pool import knn_graph
 from surface_code_miami import SurfaceCodeCircuit, X_ORDER, Z_ORDER
+from stim_alignment import build_stim_alignment
 
 
 def parse_ibm_job(job_path, t, n_data, n_measures, simulator=False):
@@ -99,14 +100,11 @@ class IBMJobDecoder:
                     neighbors.append(sc.data_idx[nb])
             self._stabilizer_data[anc_i] = neighbors
 
-        # Build detector coordinates: logical (x, y) from data qubit neighbors.
-        # Each ancilla is placed at the centroid of its data qubits in the d×d grid,
-        d = sc.distance
+        # Use Stim-aligned ancilla coordinates so IBM and DEM share the same frame.
+        alignment = build_stim_alignment(sc, rounds=self.t)
         self._detector_coords = np.zeros((self.num_ancilla, 4), dtype=np.float32)
         for i in range(self.num_ancilla):
-            neighbors = self._stabilizer_data[i]
-            logical_x = np.mean([n % d for n in neighbors]) # avg col idx
-            logical_y = np.mean([n // d for n in neighbors]) # avg row idx
+            logical_x, logical_y = alignment.ibm_ancilla_xy[i]
             is_z = 0.0 if i in sc.x_type else 1.0
             self._detector_coords[i] = [logical_x, logical_y, is_z, 1.0 - is_z]
 
@@ -246,7 +244,7 @@ class IBMJobDecoder:
         return node_features, edge_index, labels, label_map, edge_attr, flips
 
 
-def decode(distance: int, T: int, job_path: str, corner_qubit: int, finetuned: bool = False):
+def decode(distance: int, T: int, job_path: str, finetuned: bool = False):
     from gru_decoder import GRUDecoder
     from args import Args
     args = Args(
@@ -263,7 +261,7 @@ def decode(distance: int, T: int, job_path: str, corner_qubit: int, finetuned: b
     model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
     model.eval()
 
-    sc = SurfaceCodeCircuit(distance=distance, T=T, corner_qubit=corner_qubit)
+    sc = SurfaceCodeCircuit(distance=distance, T=T)
     dataset = IBMJobDecoder(
         sc,
         job_path=job_path,
@@ -283,10 +281,10 @@ def decode(distance: int, T: int, job_path: str, corner_qubit: int, finetuned: b
 
 if __name__ == "__main__":
 
-    D, T, CORNER = 3, 5, 15
-    JOB = "jobs/job_d3_T5_shots100_d7elgdu5nvhs73a6t9m0_corner15.json"
+    D, T = 3, 10
+    JOB = "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
 
-    sc = SurfaceCodeCircuit(distance=D, T=T, corner_qubit=CORNER)
+    sc = SurfaceCodeCircuit(distance=D, T=T)
     dataset = IBMJobDecoder(sc, job_path=JOB, dt=2, k=20)
     dataset._load_job_data()
 
@@ -309,6 +307,5 @@ if __name__ == "__main__":
         distance=D,
         T=T,
         job_path=JOB,
-        corner_qubit=CORNER,
         finetuned=False,
     )

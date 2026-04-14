@@ -11,17 +11,9 @@ class DEMDataset:
     Produces batches in the same 6-tuple format as Dataset and IBMJobDecoder.
     """
 
-    def __init__(self, args: Args, dem: stim.DetectorErrorModel = None,
-                 dem_path: str = None, rounds: int = 10,
-                 circuit: stim.Circuit = None, x_type: set = None):
-        if dem is None and dem_path is None:
-            raise ValueError(
-                "Provide either a stim.DetectorErrorModel via dem= "
-                "or a path to a .dem file via dem_path=."
-            )
-        if dem is None:
-            dem = stim.DetectorErrorModel.from_file(dem_path)
-
+    def __init__(self, args: Args, dem: stim.DetectorErrorModel,
+                 rounds: int, circuit: stim.Circuit,
+                 detector_is_z: np.ndarray):
         self.dem = dem
         self.sampler = dem.compile_sampler()
         self.distance = args.distance
@@ -32,49 +24,13 @@ class DEMDataset:
         self.device = args.device
         self.rounds = rounds
 
-        # Build detector coordinates from the provided or generated circuit.
-        if circuit is None:
-            circuit = stim.Circuit.generated(
-                "surface_code:rotated_memory_z",
-                distance=self.distance,
-                rounds=self.rounds,
-                after_clifford_depolarization=1e-3,
-            )
-            rescale_coords = True
-        else:
-            rescale_coords = False
-
         coords = circuit.get_detector_coordinates()
         self._detector_coords = np.array(
             [coords[i] for i in range(len(coords))], dtype=np.float32
         )
-        # stim.Circuit.generated uses half-integer coords; custom circuit already uses integer
-        if rescale_coords:
-            self._detector_coords[:, :2] /= 2
-
-        # Build per-detector is_z flag.
-        # When x_type is provided (IBM circuit), use it directly.
-        # Otherwise fall back to syndrome mask (stim.Circuit.generated).
-        if x_type is not None:
-            n_anc = len(x_type) + (self.distance ** 2 - 1 - len(x_type))
-            z_type_sorted = sorted(set(range(n_anc)) - x_type)
-            n_z = len(z_type_sorted)
-            # Detector ordering: round 0 Z-only, rounds 1..T-1 all, final Z-only
-            is_z_list = []
-            is_z_list.extend([1.0] * n_z)  # round 0: Z-type only
-            for _ in range(1, rounds):
-                for anc_i in range(n_anc):
-                    is_z_list.append(0.0 if anc_i in x_type else 1.0)
-            is_z_list.extend([1.0] * n_z)  # final: Z-type only
-            self._detector_is_z = np.array(is_z_list, dtype=np.float32)
-        else:
-            self._detector_is_z = None
-            sz = self.distance + 1
-            syndrome_x = np.zeros((sz, sz), dtype=np.uint8)
-            syndrome_x[::2, 1:sz - 1:2] = 1
-            syndrome_x[1::2, 2::2] = 1
-            syndrome_z = np.rot90(syndrome_x) * 3
-            self.syndrome_mask = syndrome_x + syndrome_z
+        # Match the coordinate convention used in data.py.
+        self._detector_coords[:, :2] /= 2.0
+        self._detector_is_z = np.asarray(detector_is_z, dtype=np.float32)
 
     def generate_batch(self):
         """
@@ -116,13 +72,7 @@ class DEMDataset:
             chunks = (t // self.dt).astype(int)
             t_local = t % self.dt
 
-            # Stabilizer type
-            if self._detector_is_z is not None:
-                is_z = self._detector_is_z[fired]
-            else:
-                xi = x.astype(int)
-                yi = y.astype(int)
-                is_z = (self.syndrome_mask[yi, xi] == 3).astype(np.float32)
+            is_z = self._detector_is_z[fired]
 
             node_feat = np.column_stack([
                 x, y, t_local, is_z, 1.0 - is_z

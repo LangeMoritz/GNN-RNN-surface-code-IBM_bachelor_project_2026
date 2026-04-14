@@ -10,7 +10,10 @@ from surface_code_miami import SurfaceCodeCircuit
 from ibm_decoder import IBMJobDecoder
 from dem_dataset import DEMDataset
 from build_dem_from_detection_events import build_dem_from_detection_events
-from ibm_stim_circuit import build_ibm_stim_circuit, ibm_detections_to_stim
+from stim_alignment import (
+    build_stim_alignment,
+    ibm_detections_to_stim_order,
+)
 from utils import TrainingLogger
 
 
@@ -39,8 +42,8 @@ args = Args(
     batch_size=512,
     n_batches=10,
     n_epochs=200,
-    lr=1e-4,
-    min_lr=1e-4, # 1e-5?
+    lr=1e-3,
+    min_lr=1e-4,
 )
 
 # --- Load pretrained model ---
@@ -50,7 +53,7 @@ model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
 model.to(args.device)
 
 # --- Load IBM data and split 80/20 ---
-sc = SurfaceCodeCircuit(distance=D, T=T, corner_qubit=5)
+sc = SurfaceCodeCircuit(distance=D, T=T)
 all_data = IBMJobDecoder(
     sc, job_path=JOB, dt=args.dt, k=args.k,
     batch_size=args.batch_size, device=args.device,
@@ -64,11 +67,22 @@ train_indices = perm[n_test:]
 
 # --- Build DEM from 80% train split ---
 train_detections = all_data.detections[train_indices]
-circuit = build_ibm_stim_circuit(D, T)
-det_stim = ibm_detections_to_stim(train_detections, sc.x_type)
+alignment = build_stim_alignment(sc, rounds=T)
+circuit = alignment.circuit
+det_stim = ibm_detections_to_stim_order(
+    train_detections,
+    alignment.ibm_middle_order,
+    alignment.ibm_z_order,
+)
 print(f"Building DEM from {len(train_detections)} shots...")
 dem = build_dem_from_detection_events(circuit, det_stim)
-train_dataset = DEMDataset(args, dem=dem, rounds=T, circuit=circuit, x_type=sc.x_type)
+train_dataset = DEMDataset(
+    args,
+    dem=dem,
+    rounds=T,
+    circuit=circuit,
+    detector_is_z=alignment.detector_is_z,
+)
 
 # --- Test dataset (20%) ---
 test_dataset = IBMJobDecoder(
