@@ -156,7 +156,7 @@ if __name__ == "__main__":
 
     # 2: After job completes, save results (paste your job ID)
     JOB = "d7elgdu5nvhs73a6t9m0"
-    save_job_result(JOB, distance=D, T=T, shots=SHOTS, corner_qubit=CORNER)
+    #save_job_result(JOB, distance=D, T=T, shots=SHOTS, corner_qubit=CORNER)
 
     # 3: Decode with GNN-RNN
     #from ibm_decoder import decode
