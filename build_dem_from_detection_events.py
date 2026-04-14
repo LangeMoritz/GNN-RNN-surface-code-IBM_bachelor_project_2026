@@ -151,7 +151,10 @@ def _extract_dem_structure(
     p_ijkl: Dict[Tuple[int, ...], float] = {}
     all_errors: List[Tuple[Tuple[int, ...], List[int]]] = []
 
-    for instruction in dem:
+    # Flatten the DEM so that repeat blocks are unrolled and all detector
+    # IDs are resolved to absolute indices.  Without this, errors inside
+    # repeat blocks (the bulk of the code) would be silently skipped.
+    for instruction in dem.flattened():
         if instruction.type != "error":
             continue
         targets = instruction.targets_copy()

@@ -51,8 +51,8 @@ class GraphConvLayer(nn.Module):
 class TrainingLogger:
     def __init__(self, logfile=None, statsfile=None):
         if logfile:
-            os.makedirs("./logs", exist_ok=True)
-        logging.basicConfig(filename=f"./logs/{logfile}", level=logging.INFO, format="%(message)s")
+            os.makedirs("./jobs/logs", exist_ok=True)
+        logging.basicConfig(filename=f"./jobs/logs/{logfile}", level=logging.INFO, format="%(message)s")
         self.logs = []
         self.statsfile = statsfile
         self.best_accuracy = 0 
@@ -95,8 +95,8 @@ class TrainingLogger:
             [logs["noflip"] for logs in self.logs],
         ))
         if self.statsfile:
-            os.makedirs("./stats", exist_ok=True)
-            np.save(f"./stats/{self.statsfile}", stats)
+            os.makedirs("./jobs/stats", exist_ok=True)
+            np.save(f"./jobs/stats/{self.statsfile}", stats)
 
 def standard_deviation(p, n):
     """

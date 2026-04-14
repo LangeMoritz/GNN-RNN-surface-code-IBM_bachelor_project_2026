@@ -21,8 +21,8 @@ class SurfaceCodeCircuit:
         self.distance = distance
         self.T = 0
         self._xbasis = xbasis
-
-        layout = generate_chip_map(distance=distance, corner_qubit=14, x_max=9, y_max=11, visualization=False) # x_max=9, y_max=11 for miami
+        # d=5 5, D=3 14
+        layout = generate_chip_map(distance=distance, corner_qubit=5, x_max=9, y_max=11, visualization=False) # x_max=9, y_max=11 for miami
         self.data_physical = layout["data"]
         self.ancilla_physical = layout["ancilla"]
         self.x_type = layout["x_type"]
@@ -107,7 +107,7 @@ def job_path(job_id, distance, T, shots):
 
 
 def get_runtime_service():
-    load_dotenv()
+    load_dotenv(dotenv_path="notes/.env")
     return QiskitRuntimeService(token=os.getenv("IBM_KEY"), instance="Surface Codes - Bachelor Thesis 2")
 
 
@@ -123,7 +123,7 @@ def submit_to_ibm(distance: int, T: int, shots: int):
         sc.circuit,
         backend=backend,
         initial_layout=sc.make_layout(),
-        optimization_level=1,
+        optimization_level=2,
         seed_transpiler=42,
     )
 
@@ -149,12 +149,12 @@ def save_job_result(job_id: str, distance: int, T: int, shots: int):
 
 # Adjust params here, uncomment one step at a time.
 if __name__ == "__main__":
-    D, T, SHOTS = 3, 10, 1000
+    D, T, SHOTS = 5, 10, 1000
     # 1: Submit to IBM
-    #submit_to_ibm(distance=D, T=T, shots=SHOTS)
+   #submit_to_ibm(distance=D, T=T, shots=SHOTS)
 
     # 2: After job completes, save results (paste your job ID)
-    #JOB = "d7aq93bklj2c73eub81g"
+    JOB = "d7bnqf30g7hs73dpre20"
     #save_job_result(JOB, distance=D, T=T, shots=SHOTS)
 
     # 3: Decode with GNN-RNN

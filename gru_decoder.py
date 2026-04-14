@@ -121,6 +121,9 @@ class GRUDecoder(nn.Module):
             if local_log:
                 logger.on_epoch_end(logs=metrics)
 
+            if i % 10 == 0:
+                print(f"Epoch {i}: loss={epoch_loss:.4f}, acc={epoch_acc:.4f}")
+
             if epoch_acc > best_accuracy:
                 best_accuracy = epoch_acc
                 best_model = deepcopy(self.state_dict())

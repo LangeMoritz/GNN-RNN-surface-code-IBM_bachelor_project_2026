@@ -1,10 +1,68 @@
-import os
+import json
+from collections import Counter
 import numpy as np
 import torch
+from qiskit_ibm_runtime import RuntimeDecoder
 from torch_geometric.nn.pool import knn_graph
 from surface_code_miami import SurfaceCodeCircuit, X_ORDER, Z_ORDER
-from ibm_utils import parse_ibm_job
-import sys
+
+
+def parse_ibm_job(job_path, t, n_data, n_measures, simulator=False):
+    """
+    Parse IBM job JSON into final data-qubit states and virtual-reset syndromes.
+
+    Handles both simulator (get_counts) and hardware (per-register bitstrings),
+    expands compressed counts, converts IBM's MSB-first ordering to qubit-0-first
+    ordering, and applies no-reset XOR diffing on syndrome rounds.
+
+    Returns
+    -------
+    final_state   : np.ndarray, shape (shots, n_data), dtype uint8
+        Final Z-basis readout of data qubits (qubit-0 first).
+    syndromes     : np.ndarray, shape (shots, t, n_measures), dtype uint8
+        Virtual-reset syndromes where syndromes[:, 0, :] is the first raw
+        measurement round and later rounds are XOR differences between
+        consecutive raw rounds.
+    """
+    with open(job_path) as f:
+        data = json.load(f, cls=RuntimeDecoder)
+
+    if simulator:
+        counts = data.get_counts()
+    else:
+        measure_regs = [f"round_{i}_measure_bit" for i in range(t)]
+        all_regs = ["code_bit"] + measure_regs
+        regs = {name: data[0].data[name].get_bitstrings() for name in all_regs}
+        bitstrings = [
+            "".join(bits) for bits in zip(*(regs[name] for name in all_regs))
+        ]
+        counts = Counter(bitstrings)
+
+    final_state_list, syndromes_nr_list = [], []
+    for bitstring, freq in counts.items():
+        final_state_list.append((bitstring[:n_data], freq))
+        syndromes_nr_list.append((bitstring[n_data:], freq))
+
+    final_state = np.array([list(s[0]) for s in final_state_list], dtype=np.uint8)
+    syndromes_nr = np.array([list(s[0]) for s in syndromes_nr_list], dtype=np.uint8)
+    freqs = np.array([s[1] for s in final_state_list], dtype=int)
+
+    final_state = np.repeat(final_state, freqs, axis=0)
+    syndromes_nr = np.repeat(syndromes_nr, freqs, axis=0)
+
+    # Reverse data-qubit order: IBM MSB-first -> qubit-0 first
+    final_state = final_state[:, ::-1]
+
+    # Reshape flat syndrome bits into rounds, then reverse ancilla bit order
+    syndromes_nr = syndromes_nr.reshape(-1, t, n_measures)
+    syndromes_nr = syndromes_nr[:, :, ::-1]
+
+    # No-reset XOR diffing
+    diff = (syndromes_nr[:, 1:, :] != syndromes_nr[:, :-1, :]).astype(np.uint8)
+    first = syndromes_nr[:, :1, :]
+    syndromes = np.concatenate([first, diff], axis=1)
+
+    return final_state, syndromes
 
 
 class IBMJobDecoder:
@@ -43,15 +101,14 @@ class IBMJobDecoder:
 
         # Build detector coordinates: logical (x, y) from data qubit neighbors.
         # Each ancilla is placed at the centroid of its data qubits in the d×d grid,
-        # e.g. a stabilizer touching columns {1,2} rows {0,1} → (x=1.5, y=0.5).
         d = sc.distance
         self._detector_coords = np.zeros((self.num_ancilla, 4), dtype=np.float32)
         for i in range(self.num_ancilla):
             neighbors = self._stabilizer_data[i]
             logical_x = np.mean([n % d for n in neighbors]) # avg col idx
             logical_y = np.mean([n // d for n in neighbors]) # avg row idx
-            is_x = 1.0 if i in sc.x_type else 0.0
-            self._detector_coords[i] = [logical_x, logical_y, is_x, 1.0 - is_x]
+            is_z = 0.0 if i in sc.x_type else 1.0
+            self._detector_coords[i] = [logical_x, logical_y, is_z, 1.0 - is_z]
 
     def _load_job_data(self):
         """
@@ -180,7 +237,7 @@ class IBMJobDecoder:
         edge_index, edge_attr = self.get_edges(node_features, labels)
 
         node_features = node_features.to(self.device)
-        flips = torch.from_numpy(flips_batch[:n]).to(self.device)
+        flips = torch.from_numpy(flips_batch[:n, np.newaxis]).to(self.device)
         labels = labels.to(self.device)
         label_map = label_map.to(self.device)
         edge_index = edge_index.to(self.device)
