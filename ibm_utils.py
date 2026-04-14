@@ -51,8 +51,6 @@ def parse_ibm_job(job_path, t, n_data, n_measures, simulator=False):
     final_state = final_state[:, ::-1]
 
     # Reshape flat syndrome bits into rounds, then reverse ancilla bit order
-    # within each round (do not reverse round order).
-    # om syndromes_nr = syndromes_nr[:, :, ::-1] innan reshape -> reverses ancilla order and time order.
     syndromes_nr = syndromes_nr.reshape(-1, t, n_measures)
     syndromes_nr = syndromes_nr[:, :, ::-1]
     

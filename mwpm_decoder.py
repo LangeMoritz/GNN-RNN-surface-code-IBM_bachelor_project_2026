@@ -1,88 +1,136 @@
 """
 mwpm_decoder.py
 ---------------
-MWPM (Minimum Weight Perfect Matching) decoder for the repetition code on IBM hardware.
+MWPM (Minimum Weight Perfect Matching) decoder for the surface code on IBM hardware.
 
 Decoding pipeline
 -----------------
-1. Load IBM Sampler job data (or Aer simulator counts) and convert bitstrings to
-   detection events on a (t+1) × (d-1) spacetime detector grid.
-2. Subsample sub-codes by sliding a spatial window of width (d-1) over the d=17
-   ancilla array.
-3. Build a PyMatching graph whose edge weights are derived from pairwise detection
-   correlations estimated directly from the data.
-4. Run batch MWPM decoding and compute logical error rates per sub-code.
+1. Load IBM job data and convert to detection events on a (t+1) × num_ancilla
+   spacetime detector grid.
+2. Extract Z-type detection events.
+3. Build a PyMatching graph whose edge weights are derived from pairwise
+   detection correlations (Spitz et al.).
+4. Run batch MWPM decoding and compute logical error rates.
 
-Boundary edge weights
----------------------
-For each boundary node i, all non-boundary incident edges (space-like, time-like,
-diagonal) carry probabilities p_ij estimated from correlations.  Their combined
-effect on the marginal detection rate <x_i> is given by the XOR-channel fold:
+Detection event boundaries
+--------------------------
+- Z-type: initial = 0 (known eigenstate |0⟩), final = parity of data qubits in support.
+- X-type: initial = syndromes[:, 0, :] (absorbs random eigenvalue), final = last round.
+  (X-type detections are computed but not currently decoded.)
 
-    p_{i,Σ} = g(p_{ij_k}, ..., g(p_{ij_2}, p_{ij_1}))
-    g(p, q)  = p + q − 2pq  (probability an odd number of the events occur)
+Matching graph topology
+-----------------------
+The Z-type spacetime grid has (t+1) rows × n_z_anc columns.
+Node index: node = t_index * n_z_anc + anc_offset.
 
-The missing boundary-edge probability that accounts for the rest of <x_i> is then:
+Three classes of bulk edges:
+  - Space-like:  ancillas that share a data qubit, within the same time slice.
+  - Time-like:   same ancilla across adjacent time slices.
+  - Diagonal:    adjacent in both space and time (hook errors).
 
-    p_iB = (<x_i> − p_{i,Σ}) / (1 − 2 p_{i,Σ})
-
-This is Eqn. (12) / (13) from the Spitz et al. detector-error-model paper and
-gives a principled, data-driven estimate of the single-qubit error rate at each
-code boundary.
+Boundary half-edges connect ancillas with unshared data qubits to the virtual
+boundary. Ancillas whose unshared qubits overlap with the Z logical operator
+(top row) are tagged with fault_ids={0}.
 """
 
 import numpy as np
 import pymatching
+
+from surface_code_miami import SurfaceCodeCircuit, X_ORDER, Z_ORDER
 from ibm_utils import parse_ibm_job
 
 
 class MWPMDecoder:
     """
-    MWPM decoder for repetition-code syndrome data from IBM hardware or Aer simulator.
+    MWPM decoder for surface-code syndrome data from IBM hardware or Aer simulator.
 
-    The matching graph has (t+1) × (d-1) detector nodes arranged in a 2-D
-    spacetime grid.  Rows correspond to time slices (0 = first syndrome round,
-    t = final readout syndrome); columns correspond to ancilla qubits.
+    The matching graph has (t+1) × n_anc detector nodes arranged in a 2-D
+    spacetime grid. Rows correspond to time slices and columns correspond to
+    Z-type ancillas.
 
     Three classes of bulk edges are added:
       - Space-like:  adjacent ancillas within the same time slice.
       - Time-like:   same ancilla across adjacent time slices.
-      - Diagonal:    adjacent-time, adjacent-space (captures hook errors from CNOTs).
+      - Diagonal:    adjacent-time, adjacent-space (hook-error channels).
 
-    Boundary half-edges connect the leftmost and rightmost node of each row to
-    the virtual boundary node.  The left boundary carries fault_ids={0}, so a
-    matching that crosses it is recorded in predictions[:, 0] and counted as a
-    logical flip prediction.
+    Boundary half-edges connect boundary ancillas to the virtual boundary.
+    One boundary class is tagged with fault_ids={0} and used as the logical
+    observable for Z-basis memory decoding.
     """
 
     def __init__(
         self,
-        distance: int,
-        t: int,
+        sc: SurfaceCodeCircuit,
         job_path: str,
-        simulator: bool,
-        shots: int,
+        simulator: bool = False,
+        pij_threshold: float = 0.0,
     ) -> None:
-        """
-        Parameters
-        ----------
-        distance : int
-            Physical code distance (number of data qubits, d = 17 for ibm_kez).
-        t : int
-            Number of syndrome measurement rounds.
-        job_path : str
-            Path to the JSON file containing job results (RuntimeEncoder format).
-        simulator : bool
-            True if data comes from an Aer simulator (uses get_counts() API).
-        shots : int
-            Nominal shot count; actual count is inferred from the expanded arrays.
-        """
-        self.distance = distance
-        self.n_measures = distance - 1
-        self.t = t
+        self.distance = sc.distance
+        self.t = sc.T
+        self.num_ancilla = len(sc.ancilla_physical)
+        self.x_type = sc.x_type
         self.job_path = job_path
         self.simulator = simulator
-        self.shots = shots
+        self.pij_threshold = pij_threshold
+
+        # Indices of Z-type ancillas
+        self.z_indices = sorted(i for i in range(self.num_ancilla) if i not in self.x_type)
+
+        # Build stabilizer-to-data-qubit map
+        self._stabilizer_data = {}
+        for anc_i, anc_p in enumerate(sc.ancilla_physical):
+            is_x = anc_i in sc.x_type
+            order = X_ORDER if is_x else Z_ORDER
+            neighbors = []
+            for direction in order:
+                nb = anc_p + direction
+                if nb in sc.data_set:
+                    neighbors.append(sc.data_idx[nb])
+            self._stabilizer_data[anc_i] = neighbors
+
+        # Build spatial adjacency: two Z ancillas are neighbors if they share
+        # at least one data qubit.
+        self._z_adj = self._build_adjacency(self.z_indices)
+
+        # Data qubits shared between 2+ Z stabilizers (interior qubits).
+        z_data_count: dict[int, int] = {}
+        for anc_i in self.z_indices:
+            for d_i in self._stabilizer_data[anc_i]:
+                z_data_count[d_i] = z_data_count.get(d_i, 0) + 1
+        shared_z_data = {d_i for d_i, c in z_data_count.items() if c >= 2}
+
+        # Boundary = any Z ancilla with at least one unshared data qubit
+        # (covers both rough-boundary weight-2 stabilizers AND smooth-boundary
+        # weight-4 stabilizers that have data qubits on the code edge).
+        z_logical_set = set(range(self.distance))  # top row = Z logical
+        self._z_boundary = set()
+        self._z_logical_boundary = set()
+        for anc_i in self.z_indices:
+            unshared = [d_i for d_i in self._stabilizer_data[anc_i]
+                        if d_i not in shared_z_data]
+            if unshared:
+                self._z_boundary.add(anc_i)
+                if any(d_i in z_logical_set for d_i in unshared):
+                    self._z_logical_boundary.add(anc_i)
+
+    def _build_adjacency(self, indices: list[int]) -> dict[int, list[int]]:
+        """
+        Build spatial adjacency list for a set of same-type ancillas.
+        Two ancillas are adjacent if they share at least one data qubit.
+        """
+        data_to_anc: dict[int, list[int]] = {}
+        for anc_i in indices:
+            for d_i in self._stabilizer_data[anc_i]:
+                data_to_anc.setdefault(d_i, []).append(anc_i)
+
+        adj_sets: dict[int, set[int]] = {i: set() for i in indices}
+        for anc_list in data_to_anc.values():
+            for i, a in enumerate(anc_list):
+                for b in anc_list[i + 1:]:
+                    adj_sets[a].add(b)
+                    adj_sets[b].add(a)
+
+        return {i: sorted(adj_sets[i]) for i in indices}
 
     # ------------------------------------------------------------------
     # Data loading
@@ -90,109 +138,87 @@ class MWPMDecoder:
 
     def _load_job_data(self) -> None:
         """
-        Load, parse, and preprocess syndrome data from the job JSON file.
+        Parse IBM job JSON into detection events and logical flips.
 
-        IBM bitstrings are MSB-first (most recently measured bit at index 0),
-        so we reverse along the bit axis to obtain qubit-0-first, round-0-first
-        ordering.
+        IBM bitstrings are converted to qubit-ordered arrays by parse_ibm_job,
+        including virtual-reset syndrome extraction via XOR differencing.
 
-        Because no mid-circuit reset is used, ancilla measurements accumulate
-        across rounds.  The actual per-round syndrome is obtained by XOR-diffing
-        consecutive raw measurements (equivalent to virtual resets).
-
-        Detection events are changes in the (virtual-reset) syndrome between
-        consecutive rounds, including:
-          - A virtual all-zero initial syndrome (valid for logical-0 preparation).
-          - t syndrome rounds.
-          - A final syndrome inferred from the data-qubit readout.
+        Detection events are built from:
+            - Initial reference syndrome.
+            - Round-to-round syndrome changes.
+            - Final reference syndrome inferred from data readout.
 
         Populates
         ---------
-        self.partitions : dict[(d, i)] → np.ndarray, shape (shots, (t+1)*(d-1))
-            Flattened boolean detection-event vectors for each sub-code.
-        self.logical_flips : dict[(d, i)] → np.ndarray, shape (shots,), dtype bool
-            True when the left-boundary data qubit was measured as |1⟩.
+        self.detections : np.ndarray, shape (shots, t+1, num_ancilla), dtype bool
+        self.logical_flips : np.ndarray, shape (shots,), dtype int32
         """
+        if hasattr(self, "detections") and hasattr(self, "logical_flips"):
+            return
+
+        n_data = self.distance ** 2
         final_state, syndromes = parse_ibm_job(
-            self.job_path, self.t, self.distance, self.distance - 1, self.simulator
+            self.job_path,
+            self.t,
+            n_data,
+            self.num_ancilla,
+            self.simulator,
         )
 
         actual_shots = final_state.shape[0]
-        measures = self.distance - 1
 
-        # Virtual initial syndrome (all-zero; valid for |0⟩_L preparation).
-        initial_syndrome = np.zeros((actual_shots, measures), dtype=np.uint8)
+        # ---- Build initial and final syndrome references ----
+        initial = np.zeros((actual_shots, 1, self.num_ancilla), dtype=np.uint8)
+        final_syndrome = np.zeros((actual_shots, self.num_ancilla), dtype=np.uint8)
 
-        # Final syndrome: XOR of adjacent data qubits after readout.
-        final_syndrome = final_state[:, :-1] ^ final_state[:, 1:]
+        for anc_i, data_indices in self._stabilizer_data.items():
+            if anc_i in self.x_type:
+                initial[:, 0, anc_i] = syndromes[:, 0, anc_i]
+                final_syndrome[:, anc_i] = syndromes[:, -1, anc_i]
+            else:
+                parity = np.zeros(actual_shots, dtype=np.uint8)
+                for d_i in data_indices:
+                    parity ^= final_state[:, d_i]
+                final_syndrome[:, anc_i] = parity
 
-        # Stack into (shots, t+2, d-1): initial | t rounds | final.
-        syndrome_matrix = np.concatenate(
-            [
-                initial_syndrome,
-                syndromes.reshape(actual_shots, -1),
-                final_syndrome,
-            ],
-            axis=1,
-        )
-        reshaped = syndrome_matrix.reshape(actual_shots, self.t + 2, measures)
+        # ---- Detection events ----
+        initial_det = initial ^ syndromes[:, :1, :]
+        middle_det = syndromes[:, :-1, :] ^ syndromes[:, 1:, :]
+        final_det = final_syndrome[:, np.newaxis, :] ^ syndromes[:, -1:, :]
 
-        # Detection events = XOR between consecutive syndrome rounds.
-        # Shape: (shots, t+1, d-1).
-        detections = np.diff(reshaped, axis=1).astype(bool)
+        self.detections = np.concatenate(
+            [initial_det, middle_det, final_det], axis=1
+        ).astype(bool)  # (shots, t+1, num_ancilla)
 
-        # Subsample sub-codes by sliding a (d-1)-wide spatial window.
-        self.partitions: dict = {}
-        self.logical_flips: dict = {}
-
-        for d in range(3, self.distance + 1, 2):
-            n_meas = d - 1
-            for i in range(self.distance - d + 1):
-                part = detections[:, :, i : i + n_meas]
-                self.partitions[(d, i)] = part.reshape(actual_shots, -1)
-                # Logical observable: value of the left-boundary data qubit.
-                # Valid for Z-basis decoding where the logical is the first qubit
-                # of the sub-code window.
-                self.logical_flips[(d, i)] = final_state[:, i] == 1
+        # ---- Logical observable: parity of top-row data qubits ----
+        logical_qubits = list(range(self.distance))
+        self.logical_flips = np.zeros(actual_shots, dtype=np.int32)
+        for q in logical_qubits:
+            self.logical_flips ^= final_state[:, q].astype(np.int32)
 
     # ------------------------------------------------------------------
-    # Edge-weight computation
+    # Edge-weight computation (Spitz et al.)
     # ------------------------------------------------------------------
 
+    @staticmethod
     def _error_correlation_matrix(
-        self, detections: np.ndarray
+        detections: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
         """
         Estimate pairwise error probabilities p_ij from detection-event data.
 
-        Uses the formula from / Spitz et al. (2018):
+            p_ij = 0.5 - 0.5 * sqrt(1 - 4*num / den)
 
-            p_ij = 0.5 − 0.5 * sqrt(1 − 4*num / den)
+        where num = <x_i x_j> - <x_i><x_j>, den = 1 - 2<x_i> - 2<x_j> + 4<x_i x_j>.
 
-        where
-            num = <x_i x_j> − <x_i><x_j>
-            den = 1 − 2<x_i> − 2<x_j> + 4<x_i x_j>
-
-        Parameters
-        ----------
-        detections : np.ndarray, shape (shots, N)
-            Binary detection-event matrix.
-
-        Returns
-        -------
-        pij : np.ndarray, shape (N, N)
-            Symmetric pairwise error probability matrix (diagonal = 0).
-        mean_i : np.ndarray, shape (N,)
-            Marginal detection probability <x_i> of each detector node.
+        Returns (pij, mean_i).
         """
         x = detections.astype(np.float64)
-        mean_i = x.mean(axis=0)               # <x_i>,  shape (N,)
-        mean_ij = (x.T @ x) / x.shape[0]     # <x_i x_j>, shape (N, N)
+        mean_i = x.mean(axis=0)
+        mean_ij = (x.T @ x) / x.shape[0]
 
         numerator = mean_ij - np.outer(mean_i, mean_i)
-        denominator = (
-            1 - 2 * mean_i[:, None] - 2 * mean_i[None, :] + 4 * mean_ij
-        )
+        denominator = 1 - 2 * mean_i[:, None] - 2 * mean_i[None, :] + 4 * mean_ij
 
         with np.errstate(divide="ignore", invalid="ignore"):
             sqrt_term = np.sqrt(1 - 4 * numerator / denominator)
@@ -204,16 +230,7 @@ class MWPMDecoder:
 
     @staticmethod
     def _xor_fold(probs) -> float:
-        """
-        Fold a list of error probabilities under the XOR channel.
-
-        Computes the probability that an odd number of independent binary events
-        occur, using the recursive identity:
-
-            g(p, q) = p + q − 2pq
-
-        An empty list returns 0 (no contribution from an empty edge set).
-        """
+        """Fold probabilities under XOR channel: g(p,q) = p + q - 2pq."""
         result = 0.0
         for p in probs:
             result = result + p - 2.0 * result * p
@@ -222,78 +239,50 @@ class MWPMDecoder:
     def _compute_boundary_prob(
         self,
         node: int,
-        row_len: int,
+        n_anc: int,
         pij: np.ndarray,
         mean_i: np.ndarray,
+        adj: dict[int, list[int]],
+        anc_list: list[int],
     ) -> float:
         """
-        Compute the boundary-edge error probability for a boundary node.
+        Compute boundary-edge probability for a boundary node using XOR inversion.
 
-        Collects the pij values for all non-boundary edges incident on `node`
-        (space-like, time-like, diagonal), XOR-folds them to get p_{i,Σ}, then
-        inverts via:
+            p_iB = (<x_i> - p_{i,Σ}) / (1 - 2*p_{i,Σ})
 
-            p_iB = (<x_i> − p_{i,Σ}) / (1 − 2 p_{i,Σ})
-
-        This is Eqn. (13) of the Spitz et al. detector-error-model paper.
-
-        Parameters
-        ----------
-        node : int
-            Detector node index (= t_index * row_len + offset).
-        row_len : int
-            Number of ancillas per time slice (= d − 1).
-        pij : np.ndarray, shape (N, N)
-            Pairwise error probability matrix from _error_correlation_matrix.
-        mean_i : np.ndarray, shape (N,)
-            Marginal detection probabilities.
-
-        Returns
-        -------
-        p_boundary : float
-            Estimated boundary error probability, clipped to [1e-7, 1 − 1e-7].
+        Collects all non-boundary incident edges (space-like, time-like, diagonal).
         """
-        t_index = node // row_len
-        offset = node % row_len
+        t_index = node // n_anc
+        offset = node % n_anc
+        anc_i = anc_list[offset]
+        anc_to_offset = {anc: i for i, anc in enumerate(anc_list)}
         incident = []
 
-        # --- Space-like neighbors (same time slice) ---
-        if offset > 0:
-            incident.append(float(pij[node, node - 1]))
-        if offset < row_len - 1:
-            incident.append(float(pij[node, node + 1]))
+        # Space-like: same time slice, spatially adjacent
+        for nb_anc in adj[anc_i]:
+            nb_offset = anc_to_offset[nb_anc]
+            nb_node = t_index * n_anc + nb_offset
+            incident.append(float(pij[node, nb_node]))
 
-        # --- Time-like neighbors (same spatial offset, adjacent time slices) ---
-        # Downward (t_index → t_index+1): exists for t_index < self.t
+        # Time-like: same ancilla, adjacent time
         if t_index < self.t:
-            incident.append(float(pij[node, node + row_len]))
-        # Upward (t_index → t_index-1): exists for t_index > 0
+            incident.append(float(pij[node, node + n_anc]))
         if t_index > 0:
-            incident.append(float(pij[node, node - row_len]))
+            incident.append(float(pij[node, node - n_anc]))
 
-        # --- Diagonal neighbors (adjacent time slices, offset ± 1) ---
-        # Diagonal edges exist for t_index in 0..t-1 (downward only in the loop).
-        #
-        # Forward-down: edge from (t_index, offset) to (t_index+1, offset+1)
-        if t_index < self.t and offset + 1 < row_len:
-            incident.append(float(pij[node, node + row_len + 1]))
-        # Backward-down: edge from (t_index, offset) to (t_index+1, offset-1)
-        if t_index < self.t and offset - 1 >= 0:
-            incident.append(float(pij[node, node + row_len - 1]))
-        # Forward-up: node is destination of backward-down from (t_index-1, offset+1)
-        #   i.e., edge (t_index-1, offset+1) → (t_index, offset)
-        if t_index > 0 and offset + 1 < row_len:
-            incident.append(float(pij[node, node - row_len + 1]))
-        # Backward-up: node is destination of forward-down from (t_index-1, offset-1)
-        #   i.e., edge (t_index-1, offset-1) → (t_index, offset)
-        if t_index > 0 and offset - 1 >= 0:
-            incident.append(float(pij[node, node - row_len - 1]))
+        # Diagonal: adjacent time AND adjacent space
+        for nb_anc in adj[anc_i]:
+            nb_offset = anc_to_offset[nb_anc]
+            if t_index < self.t:
+                nb_node = (t_index + 1) * n_anc + nb_offset
+                incident.append(float(pij[node, nb_node]))
+            if t_index > 0:
+                nb_node = (t_index - 1) * n_anc + nb_offset
+                incident.append(float(pij[node, nb_node]))
 
         p_sigma = self._xor_fold(incident)
-
         denom = 1.0 - 2.0 * p_sigma
         if abs(denom) < 1e-10:
-            # Degenerate case: return a small but finite probability.
             return 1e-7
 
         p_boundary = (float(mean_i[node]) - p_sigma) / denom
@@ -305,62 +294,53 @@ class MWPMDecoder:
 
     def get_edges(self, detections: np.ndarray, d: int) -> pymatching.Matching:
         """
-        Build the PyMatching graph for a sub-code of distance d.
+        Build the PyMatching graph for Z-type detectors.
 
         Node layout
         -----------
-        Nodes are indexed as  node = t_index * row_len + offset
-        where row_len = d-1 and t_index ∈ {0, …, t}.
-        The grid has (t+1) rows (time) × (d-1) columns (space).
+        Nodes are indexed as node = t_index * n_anc + offset,
+        where t_index in {0, ..., t} and offset indexes Z ancillas.
 
         Edges
         -----
-        - Space-like  (t, j) — (t, j+1): within a time slice.
-            fault_ids = {j+1}  (the data qubit between ancillas j and j+1).
-        - Time-like   (t, j) — (t+1, j): same ancilla, adjacent time slices.
-            No fault_ids (temporal errors don't cross the logical boundary).
-        - Diagonal    (t, j) — (t+1, j±1): hook-error edges from CNOT circuits.
-            No fault_ids.
-        - Boundary half-edges to virtual boundary node:
-            Left endpoint  fault_ids = {0}       → contributes to predictions[:, 0].
-            Right endpoint fault_ids = {row_len}  → not used in logical prediction.
-
-        Boundary weights are computed via _compute_boundary_prob (XOR inversion).
-        All bulk edge weights are −log(p_ij).
+        - Space-like  (t, i) -- (t, j): ancillas sharing a data qubit.
+        - Time-like   (t, i) -- (t+1, i): same ancilla across rounds.
+        - Diagonal    (t, i) -- (t+1, j): adjacent in time and space.
+        - Boundary half-edges to virtual boundary.
 
         Parameters
         ----------
-        detections : np.ndarray, shape (shots, (t+1)*(d-1))
-            Flattened detection-event vectors.
+        detections : np.ndarray, shape (shots, (t+1)*n_anc), dtype bool
+            Flattened Z-type detection events.
         d : int
-            Sub-code distance.
-
-        Returns
-        -------
-        matcher : pymatching.Matching
+            Code distance.
         """
-        row_len = d - 1
-        pij, mean_i = self._error_correlation_matrix(detections)
+        anc_list = self.z_indices
+        adj = self._z_adj
+        boundary_set = self._z_boundary
+        logical_boundary_set = self._z_logical_boundary
 
-        # Clip to (0, 1) before taking log; pij values are in [0, 0.5].
-        pij_safe = np.where(pij > 0, pij, 1e-7)
+        row_len = len(anc_list)
+        pij, mean_i = self._error_correlation_matrix(detections)
+        pij_safe = np.where(pij > self.pij_threshold, pij, 1e-7)
         weights = -np.log(pij_safe)
+        anc_to_offset = {anc: offset for offset, anc in enumerate(anc_list)}
 
         matcher = pymatching.Matching()
 
         # --- Space-like edges ---
         for t_index in range(self.t + 1):
-            row_start = t_index * row_len
-            for j in range(row_len - 1):
-                i = row_start + j
-                matcher.add_edge(
-                    i,
-                    i + 1,
-                    weight=weights[i, i + 1],
-                    # fault_id j+1: the data qubit between ancillas j and j+1.
-                    fault_ids={j + 1},
-                    merge_strategy="replace",
-                )
+            for offset, anc_i in enumerate(anc_list):
+                i = t_index * row_len + offset
+                for nb_anc in adj[anc_i]:
+                    nb_offset = anc_to_offset[nb_anc]
+                    if nb_offset > offset:  # avoid duplicates
+                        j = t_index * row_len + nb_offset
+                        matcher.add_edge(
+                            i, j,
+                            weight=weights[i, j],
+                            merge_strategy="replace",
+                        )
 
         # --- Time-like edges ---
         for t_index in range(self.t):
@@ -368,59 +348,45 @@ class MWPMDecoder:
                 i = t_index * row_len + offset
                 j = i + row_len
                 matcher.add_edge(
-                    i,
-                    j,
+                    i, j,
                     weight=weights[i, j],
                     merge_strategy="replace",
                 )
 
-        # --- Diagonal (hook-error) edges ---
-        # Connects (t, offset) to (t+1, offset±1) for t in 0..t-1.
+        # --- Diagonal edges ---
         for t_index in range(self.t):
-            row_start = t_index * row_len
-            for offset in range(row_len):
-                i = row_start + offset
-                # Forward diagonal: (t, offset) → (t+1, offset+1)
-                if offset + 1 < row_len:
+            for offset, anc_i in enumerate(anc_list):
+                i = t_index * row_len + offset
+                for nb_anc in adj[anc_i]:
+                    nb_offset = anc_to_offset[nb_anc]
+                    j = (t_index + 1) * row_len + nb_offset
                     matcher.add_edge(
-                        i,
-                        i + row_len + 1,
-                        weight=weights[i, i + row_len + 1],
-                        merge_strategy="replace",
-                    )
-                # Backward diagonal: (t, offset) → (t+1, offset-1)
-                if offset - 1 >= 0:
-                    matcher.add_edge(
-                        i,
-                        i + row_len - 1,
-                        weight=weights[i, i + row_len - 1],
+                        i, j,
+                        weight=weights[i, j],
                         merge_strategy="replace",
                     )
 
         # --- Boundary half-edges ---
-        # Compute boundary weights using the XOR-channel inversion formula.
         for t_index in range(self.t + 1):
-            row_start = t_index * row_len
-            left_node = row_start
-            right_node = row_start + row_len - 1
-
-            p_left = self._compute_boundary_prob(left_node, row_len, pij, mean_i)
-            p_right = self._compute_boundary_prob(right_node, row_len, pij, mean_i)
-
-            # Left boundary: fault_ids={0} marks logical-boundary crossings.
-            matcher.add_boundary_edge(
-                left_node,
-                weight=-np.log(p_left),
-                fault_ids={0},
-                merge_strategy="replace",
-            )
-            # Right boundary: fault_ids={row_len} (unused in logical prediction).
-            matcher.add_boundary_edge(
-                right_node,
-                weight=-np.log(p_right),
-                fault_ids={row_len},
-                merge_strategy="replace",
-            )
+            for offset, anc_i in enumerate(anc_list):
+                if anc_i in boundary_set:
+                    node = t_index * row_len + offset
+                    p_b = self._compute_boundary_prob(
+                        node, row_len, pij, mean_i, adj, anc_list,
+                    )
+                    if anc_i in logical_boundary_set:
+                        matcher.add_boundary_edge(
+                            node,
+                            weight=-np.log(p_b),
+                            fault_ids={0},
+                            merge_strategy="replace",
+                        )
+                    else:
+                        matcher.add_boundary_edge(
+                            node,
+                            weight=-np.log(p_b),
+                            merge_strategy="replace",
+                        )
 
         return matcher
 
@@ -437,18 +403,8 @@ class MWPMDecoder:
         """
         Decode a batch of detection events and compute logical accuracy.
 
-        Shots with no detection events (trivial syndromes) are counted as
-        correctly decoded without running MWPM (the all-zero correction is
-        trivially right for logical-0 preparation).
-
-        predictions[:, 0] counts how many times the matching crosses the left
-        boundary (fault_id=0), which is the logical observable for this sub-code.
-
-        Parameters
-        ----------
-        matcher : pymatching.Matching
-        detections : np.ndarray, shape (shots, N), dtype bool
-        logical_flips : np.ndarray, shape (shots,), dtype bool
+        Shots with no detection events are left as the all-zero prediction,
+        matching the no-correction baseline behavior.
 
         Returns
         -------
@@ -460,10 +416,13 @@ class MWPMDecoder:
         detections_nt = detections[nontrivial]
         flips_nt = logical_flips[nontrivial]
 
-        predictions = matcher.decode_batch(detections_nt)
-        predicted = predictions[:, 0]  # left-boundary crossing count
+        if detections_nt.shape[0] > 0:
+            predictions = matcher.decode_batch(detections_nt)
+            predicted = predictions[:, 0]
+            correct = np.sum(flips_nt == predicted)
+        else:
+            correct = 0
 
-        correct = np.sum(flips_nt == predicted)
         trivial_count = np.sum(~nontrivial)
         total = detections.shape[0]
 
@@ -471,42 +430,47 @@ class MWPMDecoder:
         logical_accuracy_err = np.sqrt(
             logical_accuracy * (1 - logical_accuracy) / total
         )
-        return logical_accuracy, logical_accuracy_err
+        return float(logical_accuracy), float(logical_accuracy_err)
 
-    def decode(self) -> dict:
+    def decode(self) -> tuple[float, float]:
         """
-        Run the full decoding pipeline and return logical error rates.
+        Run the full decoding pipeline.
 
-        Loads data, constructs a matching graph per sub-code, runs MWPM decoding,
-        and collects results.
+        Uses Z-type detector events and compares predicted logical flips against
+        top-row data-parity labels.
 
         Returns
         -------
-        P_L : dict[(d, i)] → (p_l, err, pdet_mean)
-            p_l : float
-                Logical error rate  P_L = 1 − accuracy.
-            err : float
-                Binomial standard error on the accuracy estimate.
-            pdet_mean : float
-                Mean detection probability for this (d, i) sub-code.
+        p_l : float
+            Logical error rate.
+        p_l_err : float
+            Binomial standard error.
         """
         self._load_job_data()
-        P_L = {}
 
-        for d, i in self.partitions:
-            detections = self.partitions[(d, i)]
-            logical_flips = self.logical_flips[(d, i)]
-            matcher = self.get_edges(detections, d)
-            pdet_mean = float(detections.mean())
-            accuracy, accuracy_err = self._evaluate_predictions(
-                matcher, detections, logical_flips
-            )
-            P_L[(d, i)] = (1 - accuracy, accuracy_err, pdet_mean)
+        det_z = self.detections[:, :, self.z_indices].reshape(len(self.detections), -1)
+        matcher = self.get_edges(det_z, self.distance)
+        pdet_mean = float(det_z.mean())
+        accuracy, accuracy_err = self._evaluate_predictions(
+            matcher,
+            det_z,
+            self.logical_flips,
+        )
 
-            if i == 0:
-                print(
-                    f"d={d}, i={i}, pdet={pdet_mean:.4f}, "
-                    f"P_L={1 - accuracy:.6f} ± {accuracy_err:.6f}"
-                )
+        p_l = 1 - accuracy
+        print(
+            f"d={self.distance}, pdet={pdet_mean:.4f}, "
+            f"Acc = {accuracy:.6f} ± {accuracy_err:.6f}, "
+            f"P_L={p_l:.6f} ± {accuracy_err:.6f}, "
+        )
+        return p_l, accuracy_err
 
-        return P_L
+
+if __name__ == "__main__":
+
+    D, T = 3, 10
+    JOB = "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
+
+    sc = SurfaceCodeCircuit(distance=D, T=T)
+    decoder = MWPMDecoder(sc, job_path=JOB, pij_threshold=0.044)# pij_threshold=0.044 for d=3. pij_threshold=0 for d=5
+    p_l, p_l_err = decoder.decode()
