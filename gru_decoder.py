@@ -47,9 +47,17 @@ class GRUDecoder(nn.Module):
             logger: TrainingLogger | None = None,
             save: str | None = None,
             dataset: Dataset | None = None,
+            val_dataset=None,
+            n_val_batches: int = 10,
+            patience: int | None = None,
         ) -> None:
+        """
+        Train the decoder. If ``val_dataset`` is provided, best-model
+        selection switches to validation accuracy and ``patience`` epochs
+        of no val-improvement trigger early stopping.
+        """
         local_log = isinstance(logger, TrainingLogger)
-        best_model = self.state_dict()
+        best_model = deepcopy(self.state_dict())
 
         if local_log:
             logger.on_training_begin(self.args)
@@ -61,33 +69,34 @@ class GRUDecoder(nn.Module):
         schedule = lambda epoch: max(0.95 ** epoch, self.args.min_lr / self.args.lr)
         scheduler = LambdaLR(optim, lr_lambda=schedule)
         loss_fn = nn.BCELoss()
-        best_accuracy = 0
-        
+        best_metric = 0.0
+        epochs_since_improve = 0
+
         for i in range(1, self.args.n_epochs + 1):
             if local_log:
                 logger.on_epoch_begin(i)
-        
+
             epoch_loss = 0
             epoch_acc = 0
             n_class_0 = 0
             zero, one = [], []
             data_time = 0
             model_time = 0
-        
+
             for _ in range(self.args.n_batches):
                 optim.zero_grad()
-    
-                t0 = time.perf_counter() 
+
+                t0 = time.perf_counter()
                 x, edge_index, batch_labels, label_map, edge_attr, flips = dataset.generate_batch()
-                t1 = time.perf_counter() 
-                
+                t1 = time.perf_counter()
+
                 out = self.forward(x, edge_index, edge_attr, batch_labels, label_map)
                 loss = loss_fn(out, flips.type(torch.float32))
                 loss.backward()
                 optim.step()
-                
+
                 t2 = time.perf_counter()
-                
+
                 # Statistics
                 data_time += t1 - t0
                 model_time += t2 - t1
@@ -95,8 +104,8 @@ class GRUDecoder(nn.Module):
                 epoch_acc += (torch.sum(torch.round(out) == flips) / torch.numel(flips)).item()
                 n_class_0 += torch.sum(flips.squeeze() == 0).item()
                 zero.append(out[flips == 0])
-                one.append(out[flips == 1]) 
-            
+                one.append(out[flips == 1])
+
             zero = torch.hstack(zero).detach().cpu()
             one = torch.hstack(one).detach().cpu()
             zero_mean, zero_std = zero.mean().item(), zero.std().item()
@@ -104,6 +113,12 @@ class GRUDecoder(nn.Module):
             epoch_loss /= self.args.n_batches
             epoch_acc /= self.args.n_batches
             noflip = n_class_0 / (torch.numel(flips) * self.args.n_batches)
+
+            # Optional validation pass
+            val_acc = None
+            if val_dataset is not None:
+                val_acc = self._evaluate(val_dataset, n_val_batches)
+                self.train()
 
             metrics = {
                 "loss":  epoch_loss,
@@ -115,29 +130,54 @@ class GRUDecoder(nn.Module):
                 "noflip": noflip,
                 "lr": scheduler.get_last_lr()[0],
                 "data_time": data_time,
-                "model_time": model_time
+                "model_time": model_time,
+                "val_acc": val_acc if val_acc is not None else float("nan"),
             }
 
             if local_log:
                 logger.on_epoch_end(logs=metrics)
 
             if i % 10 == 0:
-                print(f"Epoch {i}: loss={epoch_loss:.4f}, acc={epoch_acc:.4f}")
+                msg = f"Epoch {i}: loss={epoch_loss:.4f}, acc={epoch_acc:.4f}"
+                if val_acc is not None:
+                    msg += f", val_acc={val_acc:.4f}"
+                print(msg)
 
-            if epoch_acc > best_accuracy:
-                best_accuracy = epoch_acc
+            # Best-model selection: val accuracy if val provided, else train accuracy
+            current_metric = val_acc if val_acc is not None else epoch_acc
+            if current_metric > best_metric:
+                best_metric = current_metric
                 best_model = deepcopy(self.state_dict())
+                epochs_since_improve = 0
+            else:
+                epochs_since_improve += 1
+
+            if patience is not None and epochs_since_improve >= patience:
+                print(f"Early stop at epoch {i}: no improvement for {patience} epochs (best={best_metric:.4f}).")
+                break
 
             scheduler.step()
 
         self.load_state_dict(best_model)
-        
+
         if local_log:
             logger.on_training_end()
 
         if save:
             os.makedirs("./models", exist_ok=True)
             torch.save(self.state_dict(), f"./models/{save}.pt")
+
+    def _evaluate(self, dataset, n_batches: int) -> float:
+        """Average accuracy over ``n_batches`` from ``dataset`` (no-grad, eval mode)."""
+        self.eval()
+        correct, total = 0, 0
+        with torch.no_grad():
+            for _ in range(n_batches):
+                x, ei, lab, lm, ea, flips = dataset.generate_batch()
+                out = self.forward(x, ei, ea, lab, lm)
+                correct += (torch.round(out) == flips).sum().item()
+                total += flips.numel()
+        return correct / total if total > 0 else 0.0
 
     def test_model(self, dataset: Dataset, n_iter=1000, verbose=True):
         """

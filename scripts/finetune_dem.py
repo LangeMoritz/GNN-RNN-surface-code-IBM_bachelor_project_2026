@@ -1,0 +1,83 @@
+"""
+Fine-tune on DEM-sampled data only, with train/val/test splits drawn
+independently from the same calibrated DEM. Final evaluation on a held-out
+real-hardware test split (never seen by DEM calibration or training).
+"""
+import sys, os
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
+
+import numpy as np
+import torch
+
+from args import Args
+from gru_decoder import GRUDecoder
+from surface_code_miami import SurfaceCodeCircuit
+from ibm_decoder import split_ibm_job, evaluate_dataset
+from dem_dataset import DEMDataset
+from build_dem_from_detection_events import build_dem_from_detection_events
+from stim_alignment import build_stim_alignment, ibm_detections_to_stim_order
+from utils import TrainingLogger
+
+
+D, T = 3, 20
+JOB = "jobs/dist3/job_d3_T20_shots50000_d7fmgem2cugc739qov6g.json"
+PRETRAINED = f"models/distance{D}.pt"
+SAVE_NAME = f"distance{D}_ibm_dem"
+
+args = Args(
+    distance=D,
+    dt=5,
+    batch_size=512,
+    n_batches=64,
+    n_epochs=800,
+    lr=1e-3,
+    min_lr=1e-5,
+)
+
+# --- Split real IBM shots 75/15/15 (only train split is used for DEM calibration)
+sc = SurfaceCodeCircuit(distance=D, T=T)
+real_train, real_val, real_test = split_ibm_job(
+    sc, JOB, ratios=[0.70, 0.15, 0.15], seed=42,
+    dt=args.dt, k=args.k, batch_size=args.batch_size, device=args.device,
+)
+print(f"Real shots — train: {len(real_train.logical_flips)}, "
+      f"val: {len(real_val.logical_flips)}, test: {len(real_test.logical_flips)}")
+
+# --- Calibrate DEM from the 75% train split
+alignment = build_stim_alignment(sc, rounds=T)
+det_stim = ibm_detections_to_stim_order(
+    real_train.detections, alignment.ibm_middle_order, alignment.ibm_z_order,
+)
+print(f"Calibrating DEM from {len(det_stim)} train shots...")
+dem = build_dem_from_detection_events(alignment.circuit, det_stim)
+
+# --- Three independent DEMDataset instances (Monte Carlo train/val/test)
+dem_train = DEMDataset(args, dem=dem, rounds=T, circuit=alignment.circuit,
+                       detector_is_z=alignment.detector_is_z)
+dem_val = DEMDataset(args, dem=dem, rounds=T, circuit=alignment.circuit,
+                     detector_is_z=alignment.detector_is_z)
+dem_test = DEMDataset(args, dem=dem, rounds=T, circuit=alignment.circuit,
+                      detector_is_z=alignment.detector_is_z)
+
+# --- Load pretrained model
+model = GRUDecoder(args)
+ckpt = torch.load(PRETRAINED, weights_only=False, map_location=args.device)
+model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
+model.to(args.device)
+
+# --- Train with val-based early stopping
+logger = TrainingLogger(logfile="finetune_dem.log", statsfile="finetune_dem")
+model.train_model(
+    dataset=dem_train,
+    val_dataset=dem_val,
+    n_val_batches=10,
+    patience=50,
+    save=SAVE_NAME,
+    logger=logger,
+)
+
+# --- Evaluation
+dem_test_acc = evaluate_dataset(model, dem_test, n_batches=40)
+real_test_acc = evaluate_dataset(model, real_test, n_batches=40)
+print(f"\nDEM test accuracy:  {dem_test_acc:.4f}")
+print(f"Real test accuracy: {real_test_acc:.4f}")

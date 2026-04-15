@@ -236,15 +236,62 @@ class IBMJobDecoder:
         return node_features, edge_index, labels, label_map, edge_attr, flips
 
 
+def split_ibm_job(sc: SurfaceCodeCircuit, job_path: str, ratios, seed: int,
+                  dt: int, k: int, batch_size: int, device=None, simulator: bool = False):
+    """
+    Parse an IBM job once and return one IBMJobDecoder per split ratio, each
+    pre-loaded with its slice of detections and logical flips.
+
+    ``ratios`` is an iterable of fractions that need not sum to 1; any
+    remainder is discarded. Splits are drawn from a permutation seeded with
+    ``seed`` so that multiple runs see the same assignment.
+    """
+    template = IBMJobDecoder(
+        sc, job_path=job_path, simulator=simulator, dt=dt, k=k,
+        batch_size=batch_size, device=device,
+    )
+    template._load_job_data()
+    n_total = len(template.logical_flips)
+    perm = np.random.RandomState(seed).permutation(n_total)
+
+    splits = []
+    offset = 0
+    for r in ratios:
+        n = int(n_total * r)
+        idx = perm[offset:offset + n]
+        ds = IBMJobDecoder(
+            sc, job_path=job_path, simulator=simulator, dt=dt, k=k,
+            batch_size=batch_size, device=device,
+        )
+        ds.detections = template.detections[idx]
+        ds.logical_flips = template.logical_flips[idx]
+        splits.append(ds)
+        offset += n
+    return splits
+
+
+def evaluate_dataset(model, dataset, n_batches: int = 20) -> float:
+    """Average accuracy of ``model`` over ``n_batches`` from ``dataset``."""
+    model.eval()
+    correct, total = 0, 0
+    with torch.no_grad():
+        for _ in range(n_batches):
+            x, ei, lab, lm, ea, flips = dataset.generate_batch()
+            out = model.forward(x, ei, ea, lab, lm)
+            correct += (torch.round(out) == flips).sum().item()
+            total += flips.numel()
+    return correct / total if total > 0 else 0.0
+
+
 def decode(distance: int, T: int, job_path: str, finetuned: bool = False):
     from gru_decoder import GRUDecoder
     from args import Args
     args = Args(
         distance=distance,
-        dt=5,
+        dt=2,
         embedding_features=[5, 32, 64, 128, 256],
         hidden_size=128,
-        n_layers=4,
+        n_layers=4, 
     )
 
     model = GRUDecoder(args)
@@ -273,8 +320,8 @@ def decode(distance: int, T: int, job_path: str, finetuned: bool = False):
 
 if __name__ == "__main__":
 
-    D, T = 5, 10
-    JOB = "jobs/dist5/job_d5_T10_shots10000_d7b2nip5a5qc73dmuacg_.json"
+    D, T = 3, 20
+    JOB = "jobs/job_d3_T20_shots50000_d7fmgem2cugc739qov6g.json"
 
     sc = SurfaceCodeCircuit(distance=D, T=T)
     dataset = IBMJobDecoder(sc, job_path=JOB, dt=2, k=20)
