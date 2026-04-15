@@ -34,11 +34,11 @@ def evaluate(model, dataset, n_batches):
 
 D, T = 3, 10
 JOB = "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
-PRETRAINED = "models/distance3.pt"
+PRETRAINED = "models/distance3_ibm_test.pt"
 
 args = Args(
     distance=D,
-    dt=5,
+    dt=2,
     batch_size=512,
     n_batches=10,
     n_epochs=200,

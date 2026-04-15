@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from qiskit_ibm_runtime import RuntimeDecoder
 from torch_geometric.nn.pool import knn_graph
-from surface_code_miami import SurfaceCodeCircuit, X_ORDER, Z_ORDER
+from surface_code_miami import SurfaceCodeCircuit
 from stim_alignment import build_stim_alignment
 
 
@@ -88,17 +88,9 @@ class IBMJobDecoder:
         self.batch_size = batch_size
         self.device = device or torch.device("cpu")
         
-        # Build stabilizer-to-data-qubit map for final syndrome reconstruction
-        self._stabilizer_data = {}
-        for anc_i, anc_p in enumerate(sc.ancilla_physical):
-            is_x = anc_i in sc.x_type
-            order = X_ORDER if is_x else Z_ORDER
-            neighbors = []
-            for direction in order:
-                nb = anc_p + direction
-                if nb in sc.data_set:
-                    neighbors.append(sc.data_idx[nb])
-            self._stabilizer_data[anc_i] = neighbors
+        # Stabilizer-to-data-qubit map for final syndrome reconstruction
+        # (now computed once inside SurfaceCodeCircuit).
+        self._stabilizer_data = sc.stabilizer_data
 
         # Use Stim-aligned ancilla coordinates so IBM and DEM share the same frame.
         alignment = build_stim_alignment(sc, rounds=self.t)
@@ -281,13 +273,13 @@ def decode(distance: int, T: int, job_path: str, finetuned: bool = False):
 
 if __name__ == "__main__":
 
-    D, T = 3, 10
-    JOB = "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
+    D, T = 5, 10
+    JOB = "jobs/dist5/job_d5_T10_shots10000_d7b2nip5a5qc73dmuacg_.json"
 
     sc = SurfaceCodeCircuit(distance=D, T=T)
     dataset = IBMJobDecoder(sc, job_path=JOB, dt=2, k=20)
     dataset._load_job_data()
-
+    
     print(f"Raw logical flip rate: {dataset.logical_flips.mean():.3f}")
     n_correct_trivial = (dataset.logical_flips == 0).sum()
     print(f"Trivial decoder accuracy: {n_correct_trivial / len(dataset.logical_flips):.3f}")

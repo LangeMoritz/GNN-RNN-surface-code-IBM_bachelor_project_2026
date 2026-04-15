@@ -11,16 +11,16 @@ from utils import TrainingLogger
 
 D, T = 3, 10
 JOB = "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
-PRETRAINED = "models/distance3.pt"
+PRETRAINED = "models/distance3_ibm_test.pt"
 
 args = Args(
     distance=D,
-    dt=5,
+    dt=2,
     batch_size=512,
     n_batches=10,
     n_epochs=200,
-    lr=1e-4,
-    min_lr=1e-4,
+    lr=1e-5,
+    min_lr=1e-6,
 )
 
 # --- Load pretrained model ---
@@ -64,7 +64,7 @@ print(f"Train: {len(train_indices)} | Test: {n_test}")
 
 # --- Train ---
 logger = TrainingLogger(logfile="finetune_ibm.log", statsfile="finetune_ibm")
-model.train_model(dataset=train_dataset, save="distance3_ibm_dt3", logger=logger)
+model.train_model(dataset=train_dataset, save="distance3_ibm", logger=logger)
 
 # --- Test ---
 model.eval()

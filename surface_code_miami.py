@@ -62,6 +62,18 @@ class SurfaceCodeCircuit:
         self.data_idx = {phys: i for i, phys in enumerate(self.data_physical)}
         self.data_set = set(self.data_physical)
 
+        # Per-ancilla list of data-qubit indices that the stabilizer acts on.
+        # Used by IBMJobDecoder
+        self.stabilizer_data = {}
+        for anc_i, anc_p in enumerate(self.ancilla_physical):
+            order = X_ORDER if anc_i in self.x_type else Z_ORDER
+            neighbors = []
+            for direction in order:
+                nb = anc_p + direction
+                if nb in self.data_set:
+                    neighbors.append(self.data_idx[nb])
+            self.stabilizer_data[anc_i] = neighbors
+
         # Default: False
         if self._xbasis:
             self.circuit.h(self.code_qubit)
@@ -174,12 +186,12 @@ def save_job_result(job_id: str, distance: int, T: int, shots: int):
 
 # Adjust params here, uncomment one step at a time.
 if __name__ == "__main__":
-    D, T, SHOTS = 3, 5, 100
+    D, T, SHOTS = 5, 20, 50000
     # 1: Submit to IBM
     #submit_to_ibm(distance=D, T=T, shots=SHOTS)
 
     # 2: After job completes, save results (paste your job ID)
-    JOB = "d7elgdu5nvhs73a6t9m0"
+    JOB = "d7fmn4l6agrc738ispv0"
     #save_job_result(JOB, distance=D, T=T, shots=SHOTS)
 
     # 3: Decode with GNN-RNN
