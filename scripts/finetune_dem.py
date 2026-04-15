@@ -3,6 +3,7 @@ Fine-tune on DEM-sampled data only, with train/val/test splits drawn
 independently from the same calibrated DEM. Final evaluation on a held-out
 real-hardware test split (never seen by DEM calibration or training).
 """
+import argparse
 import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
 
@@ -19,19 +20,36 @@ from stim_alignment import build_stim_alignment, ibm_detections_to_stim_order
 from utils import TrainingLogger
 
 
-D, T = 3, 20
-JOB = "jobs/dist3/job_d3_T20_shots50000_d7fmgem2cugc739qov6g.json"
+D, T = 3, 10
+JOB = "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
 PRETRAINED = f"models/distance{D}.pt"
 SAVE_NAME = f"distance{D}_ibm_dem"
 
+
+def parse_cli_args():
+    parser = argparse.ArgumentParser(description="Fine-tune decoder on DEM-sampled data")
+    parser.add_argument("--epochs", type=int, default=1000, help="Number of training epochs")
+    parser.add_argument("--batch_size", type=int, default=1024, help="Training batch size")
+    parser.add_argument("--dt", type=int, default=5, help="Chunk size for the sliding window")
+    parser.add_argument("--batches", "--n_batches", dest="n_batches", type=int, default=64,
+                        help="Number of batches per epoch")
+    parser.add_argument("--lr", type=float, default=1e-3, help="Initial learning rate")
+    parser.add_argument("--min_lr", type=float, default=1e-5, help="Minimum learning rate")
+    parser.add_argument("--patience", type=int, default=500,
+                        help="Early-stopping patience in epochs")
+    return parser.parse_args()
+
+
+cli = parse_cli_args()
+
 args = Args(
     distance=D,
-    dt=5,
-    batch_size=512,
-    n_batches=64,
-    n_epochs=800,
-    lr=1e-3,
-    min_lr=1e-5,
+    dt=cli.dt,
+    batch_size=cli.batch_size,
+    n_batches=cli.n_batches,
+    n_epochs=cli.epochs,
+    lr=cli.lr,
+    min_lr=cli.min_lr,
 )
 
 # --- Split real IBM shots 75/15/15 (only train split is used for DEM calibration)
@@ -71,7 +89,7 @@ model.train_model(
     dataset=dem_train,
     val_dataset=dem_val,
     n_val_batches=10,
-    patience=50,
+    patience=cli.patience,
     save=SAVE_NAME,
     logger=logger,
 )

@@ -1,10 +1,12 @@
 #!/usr/bin/env bash 
 #SBATCH -A NAISS2025-5-525      # Project
 #SBATCH -p alvis                # Partition
-#SBATCH -t 0-00:05:00           # time limit days-hours:minutes:seconds
+#SBATCH -t 0-01:00:00           # time limit days-hours:minutes:seconds
 #SBATCH --gpus-per-node=A40:1   # GPUs 64GB of RAM; cost factor 1.0
-#SBATCH --output=jobs/logs/%x-%j.out 
-#SBATCH --job-name=d5_vs_mwpm
+#SBATCH -c 8
+#SBATCH --mem=32G
+#SBATCH --output=jobs/alvis/%x-%j.out 
+#SBATCH --job-name=d3_dem
 
 cd "$SLURM_SUBMIT_DIR" 
 
@@ -12,5 +14,14 @@ module purge
 module load Python/3.12.3-GCCcore-13.3.0
 source .venv/bin/activate
 
-echo "Distance 5 vs mwmp" 
-srun python scripts/test_nn.py
+echo "Distance 3 on dem" 
+echo "Job started at $(date)"
+echo "Node: $SLURMD_NODENAME"
+srun python scripts/finetune_dem.py \
+	--epochs 100 \
+	--batch_size 64 \
+	--dt 2 \
+	--batches 64 \
+	--lr 1e-3 \
+	--min_lr 1e-5 \
+	--patience 500
