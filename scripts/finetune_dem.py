@@ -28,7 +28,7 @@ SAVE_NAME = f"distance{D}_ibm_dem"
 
 def parse_cli_args():
     parser = argparse.ArgumentParser(description="Fine-tune decoder on DEM-sampled data")
-    parser.add_argument("--epochs", type=int, default=1000, help="Number of training epochs")
+    parser.add_argument("--n_epochs", type=int, default=1000, help="Number of training epochs")
     parser.add_argument("--batch_size", type=int, default=1024, help="Training batch size")
     parser.add_argument("--dt", type=int, default=5, help="Chunk size for the sliding window")
     parser.add_argument("--batches", "--n_batches", dest="n_batches", type=int, default=64,
@@ -47,7 +47,7 @@ args = Args(
     dt=cli.dt,
     batch_size=cli.batch_size,
     n_batches=cli.n_batches,
-    n_epochs=cli.epochs,
+    n_epochs=cli.n_epochs,
     lr=cli.lr,
     min_lr=cli.min_lr,
 )
