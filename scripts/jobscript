@@ -1,4 +1,4 @@
-#!/usr/bin/env bash 
+#!/usr/bin/env bash
 #SBATCH -A NAISS2025-5-525      # Project
 #SBATCH -p alvis                # Partition
 #SBATCH -t 0-02:00:00           # time limit days-hours:minutes:seconds
@@ -15,12 +15,7 @@ source .venv/bin/activate
 mkdir -p jobs/logs
 LOGFILE="jobs/logs/${SLURM_JOB_NAME}-${SLURM_JOB_ID}.log"
 
-echo "Distance 3 on dem"
-python -u scripts/finetune_dem.py \
-	--n_epochs 400 \
-	--batch_size 1024 \
-	--dt 2 \
-	--n_batches 64 \
-	--lr 1e-3 \
-	--min_lr 1e-5 \
-	--patience 50 2>&1 | tee "$LOGFILE"
+echo "Run 1: DEM-only fine-tune (T=20, dt=2)"
+# -u: unbuffered stdout so tail -f shows progress live
+# tee: mirror stdout to a named logfile you can tail while SLURM holds %j.out
+python -u scripts/finetune_dem.py 2>&1 | tee "$LOGFILE"

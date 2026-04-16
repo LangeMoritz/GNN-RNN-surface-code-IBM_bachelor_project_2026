@@ -21,6 +21,7 @@ D, T = 3, 20
 JOB = "jobs/dist3/job_d3_T20_shots50000_d7fmgem2cugc739qov6g.json"
 PRETRAINED = f"models/distance{D}.pt"
 SAVE_NAME = f"distance{D}_ibm_real"
+PATIENCE = 30
 
 args = Args(
     distance=D,
@@ -53,7 +54,7 @@ model.train_model(
     dataset=real_train,
     val_dataset=real_val,
     n_val_batches=30,
-    patience=30,
+    patience=PATIENCE,
     save=SAVE_NAME,
     logger=logger,
 )

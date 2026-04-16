@@ -22,10 +22,13 @@ from stim_alignment import build_stim_alignment, ibm_detections_to_stim_order
 from utils import TrainingLogger
 
 
-D, T = 3, 20
-JOB = "jobs/dist3/job_d3_T20_shots50000_d7fmgem2cugc739qov6g.json"
+D, T = 3, 10
+JOB = "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
 PRETRAINED = f"models/distance{D}.pt"
 SAVE_NAME = f"distance{D}_ibm_dem_real"
+PATIENCE_A = 40
+PATIENCE_B = 40
+
 
 # Phase A (DEM) and Phase B (real) share distance/dt/batch but differ in
 # learning rate and epochs — real phase fine-tunes more gently.
@@ -71,7 +74,7 @@ logger_a = TrainingLogger(logfile="finetune_dem_real_phaseA.log",
                           statsfile="finetune_dem_real_phaseA")
 model.train_model(
     dataset=dem_train, val_dataset=real_val,
-    n_val_batches=30, patience=50,
+    n_val_batches=30, patience=PATIENCE_A,
     save=f"{SAVE_NAME}_phaseA", logger=logger_a,
 )
 
@@ -84,7 +87,7 @@ logger_b = TrainingLogger(logfile="finetune_dem_real_phaseB.log",
                           statsfile="finetune_dem_real_phaseB")
 model.train_model(
     dataset=real_train, val_dataset=real_val,
-    n_val_batches=30, patience=30,
+    n_val_batches=30, patience=PATIENCE_B,
     save=SAVE_NAME, logger=logger_b,
 )
 

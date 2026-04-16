@@ -6,11 +6,7 @@ __pycache__/
 *.log
 *.sif
 /wandb
-/logs
 /models/temp/
 /src/models/
-/stats
-/jobs/logs/
-/jobs/stats/
 notes/
 .env
