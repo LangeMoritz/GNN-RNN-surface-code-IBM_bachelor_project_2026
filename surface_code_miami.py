@@ -186,12 +186,12 @@ def save_job_result(job_id: str, distance: int, T: int, shots: int):
 
 # Adjust params here, uncomment one step at a time.
 if __name__ == "__main__":
-    D, T, SHOTS = 5, 20, 50000
+    D, T, SHOTS = 3, 99, 100
     # 1: Submit to IBM
     #submit_to_ibm(distance=D, T=T, shots=SHOTS)
 
     # 2: After job completes, save results (paste your job ID)
-    JOB = "d7fmn4l6agrc738ispv0"
+    JOB = "d7fobra1u7fs739m8kv0"
     #save_job_result(JOB, distance=D, T=T, shots=SHOTS)
 
     # 3: Decode with GNN-RNN

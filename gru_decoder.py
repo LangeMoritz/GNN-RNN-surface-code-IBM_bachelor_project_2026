@@ -116,8 +116,10 @@ class GRUDecoder(nn.Module):
 
             # Optional validation pass
             val_acc = None
+            val_metrics = None
             if val_dataset is not None:
-                val_acc = self._evaluate(val_dataset, n_val_batches)
+                val_metrics = self._evaluate(val_dataset, n_val_batches)
+                val_acc = val_metrics["acc"]
                 self.train()
 
             metrics = {
@@ -139,9 +141,12 @@ class GRUDecoder(nn.Module):
 
             if i % 10 == 0:
                 msg = f"Epoch {i}: loss={epoch_loss:.4f}, acc={epoch_acc:.4f}"
-                if val_acc is not None:
-                    msg += f", val_acc={val_acc:.4f}"
-                print(msg)
+                if val_metrics is not None:
+                    msg += (f", val_acc={val_metrics['acc']:.4f} "
+                            f"(c0={val_metrics['acc_0']:.3f}, "
+                            f"c1={val_metrics['acc_1']:.3f}, "
+                            f"n1/N={val_metrics['n_1'] / (val_metrics['n_0'] + val_metrics['n_1']):.2f})")
+                print(msg, flush=True)
 
             # Best-model selection: val accuracy if val provided, else train accuracy
             current_metric = val_acc if val_acc is not None else epoch_acc
@@ -153,7 +158,7 @@ class GRUDecoder(nn.Module):
                 epochs_since_improve += 1
 
             if patience is not None and epochs_since_improve >= patience:
-                print(f"Early stop at epoch {i}: no improvement for {patience} epochs (best={best_metric:.4f}).")
+                print(f"Early stop at epoch {i}: no improvement for {patience} epochs (best={best_metric:.4f}).", flush=True)
                 break
 
             scheduler.step()
@@ -167,17 +172,32 @@ class GRUDecoder(nn.Module):
             os.makedirs("./models", exist_ok=True)
             torch.save(self.state_dict(), f"./models/{save}.pt")
 
-    def _evaluate(self, dataset, n_batches: int) -> float:
-        """Average accuracy over ``n_batches`` from ``dataset`` (no-grad, eval mode)."""
+    def _evaluate(self, dataset, n_batches: int) -> dict:
+        """Per-class + overall accuracy over ``n_batches`` (no-grad, eval mode).
+
+        Returns a dict with keys: ``acc``, ``acc_0``, ``acc_1``, ``n_0``, ``n_1``.
+        """
         self.eval()
-        correct, total = 0, 0
+        n0, n1, c0, c1 = 0, 0, 0, 0
         with torch.no_grad():
             for _ in range(n_batches):
                 x, ei, lab, lm, ea, flips = dataset.generate_batch()
                 out = self.forward(x, ei, ea, lab, lm)
-                correct += (torch.round(out) == flips).sum().item()
-                total += flips.numel()
-        return correct / total if total > 0 else 0.0
+                pred = torch.round(out)
+                is0 = flips == 0
+                is1 = flips == 1
+                n0 += is0.sum().item()
+                n1 += is1.sum().item()
+                c0 += ((pred == flips) & is0).sum().item()
+                c1 += ((pred == flips) & is1).sum().item()
+        total = n0 + n1
+        return {
+            "acc": (c0 + c1) / total if total > 0 else 0.0,
+            "acc_0": c0 / n0 if n0 > 0 else 0.0,
+            "acc_1": c1 / n1 if n1 > 0 else 0.0,
+            "n_0": n0,
+            "n_1": n1,
+        }
 
     def test_model(self, dataset: Dataset, n_iter=1000, verbose=True):
         """

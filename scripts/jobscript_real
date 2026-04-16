@@ -1,10 +1,10 @@
-#!/usr/bin/env bash 
+#!/usr/bin/env bash
 #SBATCH -A NAISS2025-5-525      # Project
 #SBATCH -p alvis                # Partition
 #SBATCH -t 0-02:00:00           # time limit days-hours:minutes:seconds
 #SBATCH --gpus-per-node=A40:1   # GPUs 64GB of RAM; cost factor 1.0
 #SBATCH --output=jobs/alvis/%x-%j.out
-#SBATCH --job-name=d3_dem
+#SBATCH --job-name=d3_real
 
 cd "$SLURM_SUBMIT_DIR"
 
@@ -15,12 +15,5 @@ source .venv/bin/activate
 mkdir -p jobs/logs
 LOGFILE="jobs/logs/${SLURM_JOB_NAME}-${SLURM_JOB_ID}.log"
 
-echo "Distance 3 on dem"
-python -u scripts/finetune_dem.py \
-	--n_epochs 400 \
-	--batch_size 1024 \
-	--dt 2 \
-	--n_batches 64 \
-	--lr 1e-3 \
-	--min_lr 1e-5 \
-	--patience 50 2>&1 | tee "$LOGFILE"
+echo "Run 2 (ablation): real-only fine-tune, skips DEM phase (T=20, dt=2)"
+python -u scripts/finetune_real.py 2>&1 | tee "$LOGFILE"

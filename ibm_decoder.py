@@ -270,17 +270,32 @@ def split_ibm_job(sc: SurfaceCodeCircuit, job_path: str, ratios, seed: int,
     return splits
 
 
-def evaluate_dataset(model, dataset, n_batches: int = 20) -> float:
-    """Average accuracy of ``model`` over ``n_batches`` from ``dataset``."""
+def evaluate_dataset(model, dataset, n_batches: int = 20) -> dict:
+    """Per-class + overall accuracy of ``model`` over ``n_batches`` from ``dataset``.
+
+    Returns a dict with keys: ``acc``, ``acc_0``, ``acc_1``, ``n_0``, ``n_1``.
+    """
     model.eval()
-    correct, total = 0, 0
+    n0, n1, c0, c1 = 0, 0, 0, 0
     with torch.no_grad():
         for _ in range(n_batches):
             x, ei, lab, lm, ea, flips = dataset.generate_batch()
             out = model.forward(x, ei, ea, lab, lm)
-            correct += (torch.round(out) == flips).sum().item()
-            total += flips.numel()
-    return correct / total if total > 0 else 0.0
+            pred = torch.round(out)
+            is0 = flips == 0
+            is1 = flips == 1
+            n0 += is0.sum().item()
+            n1 += is1.sum().item()
+            c0 += ((pred == flips) & is0).sum().item()
+            c1 += ((pred == flips) & is1).sum().item()
+    total = n0 + n1
+    return {
+        "acc": (c0 + c1) / total if total > 0 else 0.0,
+        "acc_0": c0 / n0 if n0 > 0 else 0.0,
+        "acc_1": c1 / n1 if n1 > 0 else 0.0,
+        "n_0": n0,
+        "n_1": n1,
+    }
 
 
 def decode(distance: int, T: int, job_path: str, finetuned: bool = False):
@@ -288,14 +303,14 @@ def decode(distance: int, T: int, job_path: str, finetuned: bool = False):
     from args import Args
     args = Args(
         distance=distance,
-        dt=2,
+        dt=5,
         embedding_features=[5, 32, 64, 128, 256],
         hidden_size=128,
         n_layers=4, 
     )
 
     model = GRUDecoder(args)
-    model_path = f"./models/distance{distance}_ibm.pt" if finetuned else f"./models/distance{distance}.pt"
+    model_path = f"./models/distance{distance}_ibm_dem.pt" if finetuned else f"./models/distance{distance}.pt"
     ckpt = torch.load(model_path, weights_only=False)
     model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
     model.eval()
@@ -320,8 +335,8 @@ def decode(distance: int, T: int, job_path: str, finetuned: bool = False):
 
 if __name__ == "__main__":
 
-    D, T = 3, 20
-    JOB = "jobs/job_d3_T20_shots50000_d7fmgem2cugc739qov6g.json"
+    D, T = 3, 10
+    JOB = "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
 
     sc = SurfaceCodeCircuit(distance=D, T=T)
     dataset = IBMJobDecoder(sc, job_path=JOB, dt=2, k=20)

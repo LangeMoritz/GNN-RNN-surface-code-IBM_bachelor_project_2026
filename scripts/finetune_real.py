@@ -24,8 +24,8 @@ SAVE_NAME = f"distance{D}_ibm_real"
 
 args = Args(
     distance=D,
-    dt=5,
-    batch_size=512,
+    dt=2,
+    batch_size=2048,
     n_batches=32,
     n_epochs=400,
     lr=1e-4,
@@ -52,12 +52,18 @@ logger = TrainingLogger(logfile="finetune_real.log", statsfile="finetune_real")
 model.train_model(
     dataset=real_train,
     val_dataset=real_val,
-    n_val_batches=10,
-    patience=40,
+    n_val_batches=30,
+    patience=30,
     save=SAVE_NAME,
     logger=logger,
 )
 
 # --- Evaluation on held-out real test
-real_test_acc = evaluate_dataset(model, real_test, n_batches=40)
-print(f"\nReal test accuracy: {real_test_acc:.4f}")
+real_test_m = evaluate_dataset(model, real_test, n_batches=40)
+acc = real_test_m["acc"]
+lfr_round = 1.0 - acc ** (1.0 / T) if acc > 0 else 1.0
+print(f"\nReal test:")
+print(f"  acc       = {acc:.4f}  (c0={real_test_m['acc_0']:.4f}, c1={real_test_m['acc_1']:.4f})")
+print(f"  shots     = {real_test_m['n_0'] + real_test_m['n_1']}  "
+      f"(class-0: {real_test_m['n_0']}, class-1: {real_test_m['n_1']})")
+print(f"  LFR/round = {lfr_round:.4f}  (1 - acc^(1/T) with T={T})")

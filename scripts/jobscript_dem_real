@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+#SBATCH -A NAISS2025-5-525      # Project
+#SBATCH -p alvis                # Partition
+#SBATCH -t 0-04:00:00           # time limit days-hours:minutes:seconds
+#SBATCH --gpus-per-node=A40:1   # GPUs 64GB of RAM; cost factor 1.0
+#SBATCH --output=jobs/alvis/%x-%j.out
+#SBATCH --job-name=d3_dem_real
+
+cd "$SLURM_SUBMIT_DIR"
+
+module purge
+module load Python/3.12.3-GCCcore-13.3.0
+source .venv/bin/activate
+
+mkdir -p jobs/logs
+LOGFILE="jobs/logs/${SLURM_JOB_NAME}-${SLURM_JOB_ID}.log"
+
+echo "Run 1: DEM -> real curriculum fine-tune (T=20, dt=2)"
+# -u: unbuffered stdout so tail -f shows progress live
+# tee: mirror stdout to a named logfile you can tail while SLURM holds %j.out
+python -u scripts/finetune_dem_then_real.py 2>&1 | tee "$LOGFILE"

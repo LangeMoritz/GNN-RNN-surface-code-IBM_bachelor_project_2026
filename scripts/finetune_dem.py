@@ -35,7 +35,7 @@ def parse_cli_args():
                         help="Number of batches per epoch")
     parser.add_argument("--lr", type=float, default=1e-3, help="Initial learning rate")
     parser.add_argument("--min_lr", type=float, default=1e-5, help="Minimum learning rate")
-    parser.add_argument("--patience", type=int, default=500,
+    parser.add_argument("--patience", type=int, default=50,
                         help="Early-stopping patience in epochs")
     return parser.parse_args()
 
@@ -87,15 +87,24 @@ model.to(args.device)
 logger = TrainingLogger(logfile="finetune_dem.log", statsfile="finetune_dem")
 model.train_model(
     dataset=dem_train,
-    val_dataset=dem_val,
-    n_val_batches=10,
+    val_dataset=real_val,
+    n_val_batches=30,
     patience=cli.patience,
     save=SAVE_NAME,
     logger=logger,
 )
 
 # --- Evaluation
-dem_test_acc = evaluate_dataset(model, dem_test, n_batches=40)
-real_test_acc = evaluate_dataset(model, real_test, n_batches=40)
-print(f"\nDEM test accuracy:  {dem_test_acc:.4f}")
-print(f"Real test accuracy: {real_test_acc:.4f}")
+def _report(name, metrics, T):
+    acc = metrics["acc"]
+    lfr_round = 1.0 - acc ** (1.0 / T) if acc > 0 else 1.0
+    print(f"\n{name}:")
+    print(f"  acc      = {acc:.4f}  (c0={metrics['acc_0']:.4f}, c1={metrics['acc_1']:.4f})")
+    print(f"  shots    = {metrics['n_0'] + metrics['n_1']}  "
+          f"(class-0: {metrics['n_0']}, class-1: {metrics['n_1']})")
+    print(f"  LFR/round = {lfr_round:.4f}  (1 - acc^(1/T) with T={T})")
+
+dem_test = evaluate_dataset(model, dem_test, n_batches=40)
+real_test = evaluate_dataset(model, real_test, n_batches=40)
+_report("DEM test", dem_test, T)
+_report("Real test", real_test, T)
