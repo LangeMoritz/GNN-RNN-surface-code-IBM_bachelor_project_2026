@@ -17,16 +17,16 @@ from ibm_decoder import split_ibm_job, evaluate_dataset
 from utils import TrainingLogger
 
 
-D, T = 3, 20
-JOB = "jobs/dist3/job_d3_T20_shots50000_d7fmgem2cugc739qov6g.json"
+D, T = 3, 10
+JOB = "jobs/job_d3_T10_shots10000_d7b87q15a5qc73dn58rg_.json"
 PRETRAINED = f"models/distance{D}.pt"
-SAVE_NAME = f"distance{D}_ibm_real"
+SAVE_NAME = f"distance{D}_ibm_real_test"
 PATIENCE = 30
 
 args = Args(
     distance=D,
     dt=2,
-    batch_size=2048,
+    batch_size=1024,
     n_batches=32,
     n_epochs=400,
     lr=1e-4,
