@@ -18,7 +18,7 @@ from stim_alignment import build_stim_alignment, ibm_detections_to_stim_order
 from utils import TrainingLogger
 
 
-D, T = 3, 20
+D, T = 3, 10
 JOB = "jobs/dist3/job_d3_T20_shots50000_d7fmgem2cugc739qov6g.json"
 PRETRAINED = f"models/distance{D}.pt"
 SAVE_NAME = f"distance{D}_ibm_dem"

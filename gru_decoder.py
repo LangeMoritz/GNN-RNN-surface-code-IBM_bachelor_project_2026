@@ -65,7 +65,7 @@ class GRUDecoder(nn.Module):
         self.train()
         if dataset is None:
             dataset = Dataset(self.args)
-        optim = torch.optim.Adam(self.parameters(), lr=self.args.lr)
+        optim = torch.optim.Adam(self.parameters(), lr=self.args.lr, weight_decay=self.args.weight_decay)
         schedule = lambda epoch: max(0.95 ** epoch, self.args.min_lr / self.args.lr)
         scheduler = LambdaLR(optim, lr_lambda=schedule)
         loss_fn = nn.BCELoss()

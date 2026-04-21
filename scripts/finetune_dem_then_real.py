@@ -9,7 +9,6 @@ and real-only scripts (same seed=42, same 75/15/15 split).
 import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
 
-import copy
 import torch
 
 from args import Args
@@ -23,23 +22,36 @@ from utils import TrainingLogger
 
 
 D, T = 3, 10
-#JOB = "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
-JOB = "jobs/job_d3_T10_shots10000_d7b87q15a5qc73dn58rg_.json"
+JOB = "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
+
 PRETRAINED = f"models/distance{D}.pt"
 SAVE_NAME = f"distance{D}_ibm_dem_real"
-PATIENCE_A = 40
+PATIENCE_A = 30
 PATIENCE_B = 40
 
 
 # Phase A (DEM) and Phase B (real) share distance/dt/batch but differ in
 # learning rate and epochs — real phase fine-tunes more gently.
 args_dem = Args(
-    distance=D, dt=2, batch_size=2048, n_batches=64,
-    n_epochs=800, lr=3e-4, min_lr=1e-5,
+    distance=D,
+    dt=2,
+    batch_size=2048,
+    n_batches=64,
+    n_epochs=200,
+    lr=3e-4,
+    min_lr=1e-5,
+    weight_decay=1e-4,
 )
+# Phase B
 args_real = Args(
-    distance=D, dt=2, batch_size=2048, n_batches=32,
-    n_epochs=400, lr=1e-4, min_lr=1e-6,
+    distance=D,
+    dt=2,
+    batch_size=1024,
+    n_batches=64,
+    n_epochs=200,
+    lr=1e-4,
+    min_lr=1e-6,
+    weight_decay=1e-4,
 )
 
 # --- Split real shots
