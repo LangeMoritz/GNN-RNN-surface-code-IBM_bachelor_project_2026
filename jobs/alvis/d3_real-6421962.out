@@ -1,0 +1,16 @@
+This job can be monitored from: https://job.c3se.chalmers.se/alvis/6421962
+Run 2 (ablation): real-only fine-tune, skips DEM phase (T=20, dt=2)
+Real shots — train: 35000, val: 7500, test: 7500
+Epoch 10: loss=0.4383, acc=0.7572, val_acc=0.7512 (c0=0.797, c1=0.676, n1/N=0.38)
+Epoch 20: loss=0.4140, acc=0.7764, val_acc=0.7634 (c0=0.809, c1=0.690, n1/N=0.38)
+Epoch 30: loss=0.3969, acc=0.7890, val_acc=0.7647 (c0=0.829, c1=0.660, n1/N=0.38)
+Epoch 40: loss=0.3916, acc=0.7950, val_acc=0.7620 (c0=0.819, c1=0.671, n1/N=0.38)
+Epoch 50: loss=0.3846, acc=0.8001, val_acc=0.7632 (c0=0.814, c1=0.680, n1/N=0.38)
+Epoch 60: loss=0.3860, acc=0.7989, val_acc=0.7618 (c0=0.818, c1=0.671, n1/N=0.38)
+Epoch 70: loss=0.3826, acc=0.8012, val_acc=0.7623 (c0=0.814, c1=0.677, n1/N=0.38)
+Early stop at epoch 75: no improvement for 30 epochs (best=0.7670).
+
+Real test:
+  acc       = 0.7605  (c0=0.8065, c1=0.6866)
+  shots     = 81920  (class-0: 50511, class-1: 31409)
+  LFR/round = 0.0136  (1 - acc^(1/T) with T=20)
