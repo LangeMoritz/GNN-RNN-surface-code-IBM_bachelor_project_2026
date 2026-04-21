@@ -83,12 +83,11 @@ model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
 model.to(args_dem.device)
 
 print("\n=== Phase A: DEM fine-tune ===")
-logger_a = TrainingLogger(logfile="finetune_dem_real_phaseA.log",
-                          statsfile="finetune_dem_real_phaseA")
+logger_a = TrainingLogger(statsfile="finetune_dem_real_phaseA")
 model.train_model(
     dataset=dem_train, val_dataset=real_val,
     n_val_batches=30, patience=PATIENCE_A,
-    save=f"{SAVE_NAME}_phaseA", logger=logger_a,
+    logger=logger_a,
 )
 
 # --- Phase B: continue on real hardware shots
@@ -96,8 +95,7 @@ model.train_model(
 model.args = args_real
 
 print("\n=== Phase B: real-data fine-tune ===")
-logger_b = TrainingLogger(logfile="finetune_dem_real_phaseB.log",
-                          statsfile="finetune_dem_real_phaseB")
+logger_b = TrainingLogger(statsfile="finetune_dem_real_phaseB")
 model.train_model(
     dataset=real_train, val_dataset=real_val,
     n_val_batches=30, patience=PATIENCE_B,
@@ -109,7 +107,7 @@ real_test_m = evaluate_dataset(model, real_test, n_batches=40)
 acc = real_test_m["acc"]
 lfr_round = 1.0 - acc ** (1.0 / T) if acc > 0 else 1.0
 print(f"\nReal test:")
-print(f"  acc       = {acc:.4f}  (c0={real_test_m['acc_0']:.4f}, c1={real_test_m['acc_1']:.4f})")
-print(f"  shots     = {real_test_m['n_0'] + real_test_m['n_1']}  "
+print(f" acc = {acc:.4f}  (c0={real_test_m['acc_0']:.4f}, c1={real_test_m['acc_1']:.4f})")
+print(f" shots = {real_test_m['n_0'] + real_test_m['n_1']}  "
       f"(class-0: {real_test_m['n_0']}, class-1: {real_test_m['n_1']})")
-print(f"  LFR/round = {lfr_round:.4f}  (1 - acc^(1/T) with T={T})")
+print(f" LFR/round = {lfr_round:.4f}  (1 - acc^(1/T) with T={T})")

@@ -3,7 +3,7 @@
 .DS_Store
 QEC.yml
 __pycache__/
-*.log
+
 *.sif
 /wandb
 /models/temp/

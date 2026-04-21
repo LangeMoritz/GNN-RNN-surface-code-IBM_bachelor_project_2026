@@ -52,7 +52,7 @@ class TrainingLogger:
     def __init__(self, logfile=None, statsfile=None):
         if logfile:
             os.makedirs("./jobs/logs", exist_ok=True)
-        logging.basicConfig(filename=f"./jobs/logs/{logfile}", level=logging.INFO, format="%(message)s")
+            logging.basicConfig(filename=f"./jobs/logs/{logfile}", level=logging.INFO, format="%(message)s")
         self.logs = []
         self.statsfile = statsfile
         self.best_accuracy = 0 

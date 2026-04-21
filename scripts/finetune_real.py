@@ -12,21 +12,20 @@ from utils import TrainingLogger
 
 
 D, T = 3, 10
-JOBS = [
-    "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json",
-]
+JOB = "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
 PRETRAINED = f"models/distance{D}.pt"
 SAVE_NAME = f"distance{D}_ibm_real"
-PATIENCE = 30
+PATIENCE = 40
 
 args = Args(
     distance=D,
     dt=2,
     batch_size=1024,
-    n_batches=32,
-    n_epochs=400,
+    n_batches=64,
+    n_epochs=200,
     lr=1e-4,
     min_lr=1e-6,
+    weight_decay=1e-4,
 )
 
 # --- Load pretrained model
@@ -36,40 +35,30 @@ model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
 model.to(args.device)
 
 sc = SurfaceCodeCircuit(distance=D, T=T)
-final_test = None
+real_train, real_val, real_test = split_ibm_job(
+    sc, JOB, ratios=[0.70, 0.15, 0.15], seed=42,
+    dt=args.dt, k=args.k, batch_size=args.batch_size, device=args.device,
+)
 
-for stage_idx, job in enumerate(JOBS, start=1):
-    # Split real shots 70/15/15 with fixed seed for reproducibility per job.
-    real_train, real_val, real_test = split_ibm_job(
-        sc, job, ratios=[0.70, 0.15, 0.15], seed=42,
-        dt=args.dt, k=args.k, batch_size=args.batch_size, device=args.device,
-    )
-    final_test = real_test
+print(f"JOB: {JOB}")
+print(f"Real shots — train: {len(real_train.logical_flips)}, "
+      f"val: {len(real_val.logical_flips)}, test: {len(real_test.logical_flips)}")
 
-    print(f"\n=== Stage {stage_idx}/{len(JOBS)} ===")
-    print(f"JOB: {job}")
-    print(f"Real shots — train: {len(real_train.logical_flips)}, "
-          f"val: {len(real_val.logical_flips)}, test: {len(real_test.logical_flips)}")
+logger = TrainingLogger(statsfile="finetune_real")
+model.train_model(
+    dataset=real_train,
+    val_dataset=real_val,
+    n_val_batches=30,
+    patience=PATIENCE,
+    save=SAVE_NAME,
+    logger=logger,
+)
 
-    logger = TrainingLogger(
-        logfile=f"finetune_real_stage{stage_idx}.log",
-        statsfile=f"finetune_real_stage{stage_idx}",
-    )
-    stage_save = f"{SAVE_NAME}_stage{stage_idx}" if stage_idx < len(JOBS) else SAVE_NAME
-    model.train_model(
-        dataset=real_train,
-        val_dataset=real_val,
-        n_val_batches=30,
-        patience=PATIENCE,
-        save=stage_save,
-        logger=logger,
-    )
-
-# --- Evaluation on held-out real test for the second (final) job
-real_test_m = evaluate_dataset(model, final_test, n_batches=40)
+# --- Evaluation on held-out real test
+real_test_m = evaluate_dataset(model, real_test, n_batches=40)
 acc = real_test_m["acc"]
 lfr_round = 1.0 - acc ** (1.0 / T) if acc > 0 else 1.0
-print(f"\nFinal-stage real test:")
+print(f"\nReal test:")
 print(f"  acc       = {acc:.4f}  (c0={real_test_m['acc_0']:.4f}, c1={real_test_m['acc_1']:.4f})")
 print(f"  shots     = {real_test_m['n_0'] + real_test_m['n_1']}  "
       f"(class-0: {real_test_m['n_0']}, class-1: {real_test_m['n_1']})")
