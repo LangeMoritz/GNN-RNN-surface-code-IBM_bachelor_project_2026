@@ -14,10 +14,9 @@ from utils import TrainingLogger
 D, T = 3, 10
 JOBS = [
     "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json",
-    "jobs/job_d3_T10_shots10000_d7b87q15a5qc73dn58rg_.json",
 ]
 PRETRAINED = f"models/distance{D}.pt"
-SAVE_NAME = f"distance{D}_ibm_real_test"
+SAVE_NAME = f"distance{D}_ibm_real"
 PATIENCE = 30
 
 args = Args(
