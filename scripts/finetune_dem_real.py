@@ -27,7 +27,7 @@ JOB = "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
 PRETRAINED = f"models/distance{D}.pt"
 SAVE_NAME = f"distance{D}_ibm_dem_real"
 PATIENCE_A = 30
-PATIENCE_B = 40
+PATIENCE_B = 50
 
 
 # Phase A (DEM) and Phase B (real) share distance/dt/batch but differ in
@@ -35,22 +35,22 @@ PATIENCE_B = 40
 args_dem = Args(
     distance=D,
     dt=2,
-    batch_size=2048,
-    n_batches=64,
+    batch_size=256,
+    n_batches=128,
     n_epochs=200,
     lr=3e-4,
     min_lr=1e-5,
 )
-# Phase B
+# Phase B — batch_size * n_batches >= 70k so every real training shot is seen
+# at least once per epoch (70k train split, 1024 * 70 = 71_680).
 args_real = Args(
     distance=D,
     dt=2,
     batch_size=1024,
-    n_batches=64,
+    n_batches=70,
     n_epochs=200,
-    lr=1e-4,
+    lr=5e-5,
     min_lr=1e-6,
-    pos_weight=2.8,
 )
 
 # --- Split real shots
@@ -72,8 +72,8 @@ dem = build_dem_from_detection_events(alignment.circuit, det_stim)
 
 dem_train = DEMDataset(args_dem, dem=dem, rounds=T, circuit=alignment.circuit,
                        detector_is_z=alignment.detector_is_z)
-dem_val = DEMDataset(args_dem, dem=dem, rounds=T, circuit=alignment.circuit,
-                     detector_is_z=alignment.detector_is_z)
+# dem_val = DEMDataset(args_dem, dem=dem, rounds=T, circuit=alignment.circuit,
+#                      detector_is_z=alignment.detector_is_z)
 
 # --- Model + phase A
 model = GRUDecoder(args_dem)
