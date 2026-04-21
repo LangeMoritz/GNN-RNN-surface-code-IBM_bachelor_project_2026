@@ -68,7 +68,8 @@ class GRUDecoder(nn.Module):
         optim = torch.optim.Adam(self.parameters(), lr=self.args.lr, weight_decay=self.args.weight_decay)
         schedule = lambda epoch: max(0.95 ** epoch, self.args.min_lr / self.args.lr)
         scheduler = LambdaLR(optim, lr_lambda=schedule)
-        loss_fn = nn.BCELoss()
+        loss_fn = nn.BCELoss(reduction='none')
+        pos_weight = self.args.pos_weight
         best_metric = 0.0
         epochs_since_improve = 0
 
@@ -91,7 +92,10 @@ class GRUDecoder(nn.Module):
                 t1 = time.perf_counter()
 
                 out = self.forward(x, edge_index, edge_attr, batch_labels, label_map)
-                loss = loss_fn(out, flips.type(torch.float32))
+                flips_f = flips.type(torch.float32)
+                per_sample = loss_fn(out, flips_f)
+                sample_w = torch.where(flips_f > 0.5, pos_weight, 1.0)
+                loss = (per_sample * sample_w).mean()
                 loss.backward()
                 optim.step()
 

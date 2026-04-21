@@ -25,7 +25,7 @@ args = Args(
     n_epochs=200,
     lr=1e-4,
     min_lr=1e-6,
-    weight_decay=1e-4,
+    pos_weight=2.8,
 )
 
 # --- Load pretrained model

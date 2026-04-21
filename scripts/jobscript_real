@@ -12,8 +12,5 @@ module purge
 module load Python/3.12.3-GCCcore-13.3.0
 source .venv/bin/activate
 
-mkdir -p jobs/logs
-LOGFILE="jobs/logs/${SLURM_JOB_NAME}-${SLURM_JOB_ID}.log"
-
 echo "Run 2 (ablation): real-only fine-tune, skips DEM phase (T=20, dt=2)"
-python -u scripts/finetune_real.py 2>&1 | tee "$LOGFILE"
+python -u scripts/finetune_real.py

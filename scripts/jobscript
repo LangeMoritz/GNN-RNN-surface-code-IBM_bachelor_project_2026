@@ -12,10 +12,5 @@ module purge
 module load Python/3.12.3-GCCcore-13.3.0
 source .venv/bin/activate
 
-mkdir -p jobs/logs
-LOGFILE="jobs/logs/${SLURM_JOB_NAME}-${SLURM_JOB_ID}.log"
-
-echo "Run 1: DEM-only fine-tune (T=20, dt=2)"
-# -u: unbuffered stdout so tail -f shows progress live
-# tee: mirror stdout to a named logfile you can tail while SLURM holds %j.out
-python -u scripts/finetune_dem.py 2>&1 | tee "$LOGFILE"
+echo "Run 1: DEM-only fine-tune (T=10, dt=2)"
+python -u scripts/finetune_dem.py

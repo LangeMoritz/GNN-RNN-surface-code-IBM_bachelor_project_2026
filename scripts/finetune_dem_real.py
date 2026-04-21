@@ -40,7 +40,6 @@ args_dem = Args(
     n_epochs=200,
     lr=3e-4,
     min_lr=1e-5,
-    weight_decay=1e-4,
 )
 # Phase B
 args_real = Args(
@@ -51,7 +50,7 @@ args_real = Args(
     n_epochs=200,
     lr=1e-4,
     min_lr=1e-6,
-    weight_decay=1e-4,
+    pos_weight=2.8,
 )
 
 # --- Split real shots
