@@ -1,0 +1,36 @@
+This job can be monitored from: https://job.c3se.chalmers.se/alvis/6421903
+Run 1: DEM -> real curriculum fine-tune (T=20, dt=2)
+/cephyr/users/emapet/Alvis/src/GNN-RNN-surface-code-IBM_bachelor_project_2026/.venv/lib/python3.12/site-packages/samplomatic/__init__.py:20: UserWarning: 
+You have imported samplomatic==0.18.0 which is in 
+beta development. Please expect breaking changes between 
+minor versions and pin your dependencies accordingly.
+  _warn_once_per_version(
+Real shots — train: 35000, val: 7500, test: 7500
+Calibrating DEM from 35000 train shots...
+
+=== Phase A: DEM fine-tune ===
+Epoch 10: loss=0.5107, acc=0.7356, val_acc=0.7464 (c0=0.863, c1=0.555, n1/N=0.38)
+Epoch 20: loss=0.4970, acc=0.7455, val_acc=0.7526 (c0=0.860, c1=0.577, n1/N=0.38)
+Epoch 30: loss=0.4915, acc=0.7498, val_acc=0.7536 (c0=0.851, c1=0.596, n1/N=0.38)
+Epoch 40: loss=0.4890, acc=0.7516, val_acc=0.7519 (c0=0.864, c1=0.568, n1/N=0.38)
+Epoch 50: loss=0.4835, acc=0.7547, val_acc=0.7549 (c0=0.849, c1=0.602, n1/N=0.38)
+Epoch 60: loss=0.4853, acc=0.7537, val_acc=0.7555 (c0=0.860, c1=0.584, n1/N=0.38)
+Epoch 70: loss=0.4849, acc=0.7549, val_acc=0.7549 (c0=0.849, c1=0.601, n1/N=0.38)
+Epoch 80: loss=0.4842, acc=0.7544, val_acc=0.7613 (c0=0.859, c1=0.603, n1/N=0.38)
+Epoch 90: loss=0.4838, acc=0.7558, val_acc=0.7567 (c0=0.850, c1=0.603, n1/N=0.38)
+Epoch 100: loss=0.4821, acc=0.7567, val_acc=0.7568 (c0=0.858, c1=0.591, n1/N=0.38)
+Epoch 110: loss=0.4840, acc=0.7555, val_acc=0.7578 (c0=0.859, c1=0.593, n1/N=0.38)
+Epoch 120: loss=0.4801, acc=0.7570, val_acc=0.7554 (c0=0.850, c1=0.600, n1/N=0.38)
+Epoch 130: loss=0.4847, acc=0.7554, val_acc=0.7560 (c0=0.853, c1=0.599, n1/N=0.38)
+Early stop at epoch 130: no improvement for 50 epochs (best=0.7613).
+
+=== Phase B: real-data fine-tune ===
+Epoch 10: loss=0.3828, acc=0.7972, val_acc=0.7779 (c0=0.817, c1=0.714, n1/N=0.38)
+Epoch 20: loss=0.3603, acc=0.8148, val_acc=0.7789 (c0=0.827, c1=0.699, n1/N=0.38)
+Epoch 30: loss=0.3477, acc=0.8252, val_acc=0.7737 (c0=0.822, c1=0.695, n1/N=0.38)
+Early stop at epoch 39: no improvement for 30 epochs (best=0.7832).
+
+Real test:
+  acc       = 0.7776  (c0=0.8350, c1=0.6857)
+  shots     = 81920  (class-0: 50435, class-1: 31485)
+  LFR/round = 0.0125  (1 - acc^(1/T) with T=20)
