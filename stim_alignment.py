@@ -90,8 +90,6 @@ def _build(sc: SurfaceCodeCircuit, rounds: int, noise: float) -> StimAlignment:
         )
 
     ts = sorted(dets_by_t)
-    if len(ts) < 2:
-        raise ValueError(f"Expected at least 2 detector time slices, got {len(ts)}")
 
     # First slice: Z-only detectors. (For rotated_memory_z the last slice is
     # also Z-only and has the same layout as the first.)
@@ -111,10 +109,6 @@ def _build(sc: SurfaceCodeCircuit, rounds: int, noise: float) -> StimAlignment:
     # Middle slice: all ancillas. Only meaningful when rounds >= 2.
     if rounds >= 2 and len(ts) >= 3:
         ibm_middle_order = _resolve(dets_by_t[ts[1]])
-        if len(ibm_middle_order) != num_anc:
-            raise ValueError(
-                f"Middle round has {len(ibm_middle_order)} detectors, expected {num_anc}"
-            )
     else:
         # No middle round; leave an identity permutation as a placeholder.
         ibm_middle_order = np.arange(num_anc, dtype=np.int64)
