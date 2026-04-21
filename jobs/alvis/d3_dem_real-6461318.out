@@ -1,0 +1,27 @@
+This job can be monitored from: https://job.c3se.chalmers.se/alvis/6461318
+Run 1: DEM -> real curriculum fine-tune (T=20, dt=2)
+Real shots — train: 70000, val: 15000, test: 15000
+Calibrating DEM from 70000 train shots...
+
+=== Phase A: DEM fine-tune ===
+Epoch 10: loss=0.3188, acc=0.8588, val_acc=0.8258 (c0=0.921, c1=0.564, n1/N=0.27)
+Epoch 20: loss=0.3115, acc=0.8624, val_acc=0.8220 (c0=0.910, c1=0.583, n1/N=0.27)
+Epoch 30: loss=0.3043, acc=0.8655, val_acc=0.8217 (c0=0.919, c1=0.559, n1/N=0.27)
+Early stop at epoch 39: no improvement for 30 epochs (best=0.8290).
+
+=== Phase B: real-data fine-tune ===
+Epoch 10: loss=0.2802, acc=0.8588, val_acc=0.8454 (c0=0.933, c1=0.602, n1/N=0.26)
+Epoch 20: loss=0.2808, acc=0.8596, val_acc=0.8437 (c0=0.929, c1=0.608, n1/N=0.26)
+Epoch 30: loss=0.2720, acc=0.8643, val_acc=0.8487 (c0=0.924, c1=0.641, n1/N=0.27)
+Epoch 40: loss=0.2653, acc=0.8692, val_acc=0.8443 (c0=0.916, c1=0.643, n1/N=0.26)
+Epoch 50: loss=0.2649, acc=0.8712, val_acc=0.8456 (c0=0.919, c1=0.649, n1/N=0.27)
+Epoch 60: loss=0.2638, acc=0.8712, val_acc=0.8461 (c0=0.917, c1=0.651, n1/N=0.27)
+Epoch 70: loss=0.2629, acc=0.8729, val_acc=0.8476 (c0=0.922, c1=0.644, n1/N=0.27)
+Epoch 80: loss=0.2624, acc=0.8735, val_acc=0.8481 (c0=0.919, c1=0.652, n1/N=0.27)
+Epoch 90: loss=0.2654, acc=0.8727, val_acc=0.8444 (c0=0.920, c1=0.640, n1/N=0.27)
+Early stop at epoch 97: no improvement for 40 epochs (best=0.8520).
+
+Real test:
+  acc       = 0.8520  (c0=0.9170, c1=0.6672)
+  shots     = 40960  (class-0: 30299, class-1: 10661)
+  LFR/round = 0.0159  (1 - acc^(1/T) with T=10)
