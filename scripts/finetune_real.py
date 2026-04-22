@@ -16,11 +16,12 @@ PRETRAINED = f"models/distance{D}.pt"
 SAVE_NAME = f"distance{D}_ibm_real"
 PATIENCE = 40
 
+# batch_size * n_batches = 8192 * 11 = 90_112, covers the 85k train split once per epoch
 args = Args(
     distance=D,
     dt=2,
-    batch_size=1024,
-    n_batches=25,
+    batch_size=8192,
+    n_batches=11,
     n_epochs=140,
     lr=5e-5,
     min_lr=1e-6,
