@@ -1,30 +1,27 @@
-
 import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
 
 import torch
-
 from args import Args
 from gru_decoder import GRUDecoder
 from surface_code_miami import SurfaceCodeCircuit
-from ibm_decoder import split_ibm_job, evaluate_dataset
+from ibm_decoder import IBMJobDecoder, split_ibm_job, evaluate_dataset
 from utils import TrainingLogger
 
 
 D, T = 3, 10
-JOB = "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
+TRAIN_JOB = "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
+TEST_JOB = "jobs/dist3/job_d3_T10_shots10000_d7b87q15a5qc73dn58rg_.json"
 PRETRAINED = f"models/distance{D}.pt"
 SAVE_NAME = f"distance{D}_ibm_real"
 PATIENCE = 40
 
-# batch_size * n_batches >= 70k so every real training shot is seen at least
-# once per epoch (70k train split, 1024 * 70 = 71_680).
 args = Args(
     distance=D,
     dt=2,
     batch_size=1024,
-    n_batches=70,
-    n_epochs=200,
+    n_batches=25,
+    n_epochs=140,
     lr=5e-5,
     min_lr=1e-6,
 )
@@ -36,12 +33,19 @@ model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
 model.to(args.device)
 
 sc = SurfaceCodeCircuit(distance=D, T=T)
-real_train, real_val, real_test = split_ibm_job(
-    sc, JOB, ratios=[0.70, 0.15, 0.15], seed=42,
+# Train job: 85/15 train/val split (test comes from the separate TEST_JOB).
+real_train, real_val = split_ibm_job(
+    sc, TRAIN_JOB, ratios=[0.85, 0.15], seed=42,
     dt=args.dt, k=args.k, batch_size=args.batch_size, device=args.device,
 )
+real_test = IBMJobDecoder(
+    sc, job_path=TEST_JOB, dt=args.dt, k=args.k,
+    batch_size=args.batch_size, device=args.device,
+)
+real_test._load_job_data()
 
-print(f"JOB: {JOB}")
+print(f"TRAIN_JOB: {TRAIN_JOB}")
+print(f"TEST_JOB:  {TEST_JOB}")
 print(f"Real shots — train: {len(real_train.logical_flips)}, "
       f"val: {len(real_val.logical_flips)}, test: {len(real_test.logical_flips)}")
 
