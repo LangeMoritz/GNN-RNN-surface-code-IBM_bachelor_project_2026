@@ -17,15 +17,16 @@ PRETRAINED = f"models/distance{D}.pt"
 SAVE_NAME = f"distance{D}_ibm_real"
 PATIENCE = 40
 
+# batch_size * n_batches >= 70k so every real training shot is seen at least
+# once per epoch (70k train split, 1024 * 70 = 71_680).
 args = Args(
     distance=D,
     dt=2,
     batch_size=1024,
-    n_batches=64,
+    n_batches=70,
     n_epochs=200,
-    lr=1e-4,
+    lr=5e-5,
     min_lr=1e-6,
-    pos_weight=2.8,
 )
 
 # --- Load pretrained model
@@ -59,7 +60,7 @@ real_test_m = evaluate_dataset(model, real_test, n_batches=40)
 acc = real_test_m["acc"]
 lfr_round = 1.0 - acc ** (1.0 / T) if acc > 0 else 1.0
 print(f"\nReal test:")
-print(f"  acc       = {acc:.4f}  (c0={real_test_m['acc_0']:.4f}, c1={real_test_m['acc_1']:.4f})")
-print(f"  shots     = {real_test_m['n_0'] + real_test_m['n_1']}  "
+print(f" acc = {acc:.4f}  (c0={real_test_m['acc_0']:.4f}, c1={real_test_m['acc_1']:.4f})")
+print(f" shots = {real_test_m['n_0'] + real_test_m['n_1']}  "
       f"(class-0: {real_test_m['n_0']}, class-1: {real_test_m['n_1']})")
-print(f"  LFR/round = {lfr_round:.4f}  (1 - acc^(1/T) with T={T})")
+print(f" LFR/round = {lfr_round:.4f}  (1 - acc^(1/T) with T={T})")

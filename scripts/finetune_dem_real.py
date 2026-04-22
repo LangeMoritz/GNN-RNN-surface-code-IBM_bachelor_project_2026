@@ -30,8 +30,7 @@ PATIENCE_A = 30
 PATIENCE_B = 50
 
 
-# Phase A (DEM) and Phase B (real) share distance/dt/batch but differ in
-# learning rate and epochs — real phase fine-tunes more gently.
+# Phase A (DEM) and Phase B (real)
 args_dem = Args(
     distance=D,
     dt=2,
@@ -41,8 +40,7 @@ args_dem = Args(
     lr=3e-4,
     min_lr=1e-5,
 )
-# Phase B — batch_size * n_batches >= 70k so every real training shot is seen
-# at least once per epoch (70k train split, 1024 * 70 = 71_680).
+# Phase B
 args_real = Args(
     distance=D,
     dt=2,
