@@ -149,19 +149,18 @@ class IBMJobDecoder:
         """
         Convert detection events to node features [x, y, t, is_X, is_Z].
         Only fired detectors become nodes.
+
+        Returns:
+            coords: float32 (n_nodes, 5) with columns [x, y, t_raw, is_X, is_Z].
+                    t_raw is the raw round index; caller applies dt chunking.
+            shot_idx: int64 (n_nodes,) shot/row each node came from.
         """
-        node_features_list = []
-        for shot_detections in detection_batch:
-            fired = np.argwhere(shot_detections)
-            if len(fired) == 0:
-                continue
-            coords = np.zeros((len(fired), 5), dtype=np.float32)
-            for j, (t_idx, anc_idx) in enumerate(fired):
-                coords[j, :2] = self._detector_coords[anc_idx, :2]
-                coords[j, 2] = t_idx
-                coords[j, 3:] = self._detector_coords[anc_idx, 2:]
-            node_features_list.append(coords)
-        return node_features_list
+        shot_idx, t_idx, anc_idx = np.where(detection_batch)
+        coords = np.empty((shot_idx.size, 5), dtype=np.float32)
+        coords[:, :2] = self._detector_coords[anc_idx, :2]
+        coords[:, 2] = t_idx
+        coords[:, 3:] = self._detector_coords[anc_idx, 2:]
+        return coords, shot_idx.astype(np.int64)
 
     def get_edges(self, node_features, labels):
         """
@@ -173,6 +172,14 @@ class IBMJobDecoder:
         edge_attr = torch.linalg.norm(delta, ord=self.norm, dim=1)
         edge_attr = 1 / edge_attr ** 2
         return edge_index, edge_attr
+
+    def _ensure_event_filter(self):
+        """Cache the has-event filtered arrays so we do it once, not per batch."""
+        if hasattr(self, '_det_filtered'):
+            return
+        has_event = np.any(self.detections.reshape(len(self.detections), -1), axis=1)
+        self._det_filtered = self.detections[has_event]
+        self._flips_filtered = self.logical_flips[has_event]
 
     def generate_batch(self):
         """
@@ -187,35 +194,21 @@ class IBMJobDecoder:
             flips: tensor of shape [batch size].
         """
         self._load_job_data()
+        self._ensure_event_filter()
 
-        # Filter shots with at least one detection event
-        has_event = np.any(self.detections.reshape(len(self.detections), -1), axis=1)
-        det_filtered = self.detections[has_event]
-        flips_filtered = self.logical_flips[has_event]
+        n = min(self.batch_size, len(self._det_filtered))
+        indices = np.random.choice(len(self._det_filtered), n, replace=False)
+        det_batch = self._det_filtered[indices]
+        flips_batch = self._flips_filtered[indices]
 
-        n = min(self.batch_size, len(det_filtered))
-        indices = np.random.choice(len(det_filtered), n, replace=False)
-        det_batch = det_filtered[indices]
-        flips_batch = flips_filtered[indices]
+        # Build node features (vectorized across all shots in the batch)
+        coords, batch_labels = self._get_node_features(det_batch)
 
-        # Build node features
-        node_features_list = self._get_node_features(det_batch)
+        # Chunk by dt — t_raw values 0..T are small ints exactly representable in float32
+        chunk_labels = (coords[:, 2] // self.dt).astype(np.int64)
+        coords[:, 2] = coords[:, 2] % self.dt
 
-        # Chunk by dt
-        all_nodes = []
-        batch_labels = []
-        chunk_labels = []
-        for b_idx, coords in enumerate(node_features_list):
-            chunks = coords[:, 2] // self.dt
-            coords_copy = coords.copy()
-            coords_copy[:, 2] = coords[:, 2] % self.dt
-            all_nodes.append(coords_copy)
-            batch_labels.extend([b_idx] * len(coords))
-            chunk_labels.extend(chunks.astype(int).tolist())
-
-        node_features = torch.from_numpy(np.vstack(all_nodes))
-        batch_labels = np.array(batch_labels)
-        chunk_labels = np.array(chunk_labels)
+        node_features = torch.from_numpy(coords)
 
         # Map [batch, chunk] -> label integer
         label_map = np.column_stack([batch_labels, chunk_labels])
@@ -241,10 +234,6 @@ def split_ibm_job(sc: SurfaceCodeCircuit, job_path: str, ratios, seed: int,
     """
     Parse an IBM job once and return one IBMJobDecoder per split ratio, each
     pre-loaded with its slice of detections and logical flips.
-
-    ``ratios`` is an iterable of fractions that need not sum to 1; any
-    remainder is discarded. Splits are drawn from a permutation seeded with
-    ``seed`` so that multiple runs see the same assignment.
     """
     template = IBMJobDecoder(
         sc, job_path=job_path, simulator=simulator, dt=dt, k=k,
@@ -259,12 +248,15 @@ def split_ibm_job(sc: SurfaceCodeCircuit, job_path: str, ratios, seed: int,
     for r in ratios:
         n = int(n_total * r)
         idx = perm[offset:offset + n]
-        ds = IBMJobDecoder(
-            sc, job_path=job_path, simulator=simulator, dt=dt, k=k,
-            batch_size=batch_size, device=device,
-        )
+        # Skip __init__ (and its stim alignment / stabilizer setup), reuse
+        # the template's already-computed state and only override the slices.
+        ds = IBMJobDecoder.__new__(IBMJobDecoder)
+        ds.__dict__.update(template.__dict__)
         ds.detections = template.detections[idx]
         ds.logical_flips = template.logical_flips[idx]
+        # Drop the template's cached filter so each child rebuilds its own.
+        ds.__dict__.pop('_det_filtered', None)
+        ds.__dict__.pop('_flips_filtered', None)
         splits.append(ds)
         offset += n
     return splits
@@ -303,14 +295,14 @@ def decode(distance: int, T: int, job_path: str, finetuned: bool = False):
     from args import Args
     args = Args(
         distance=distance,
-        dt=5,
+        dt=2,
         embedding_features=[5, 32, 64, 128, 256],
         hidden_size=128,
         n_layers=4, 
     )
 
     model = GRUDecoder(args)
-    model_path = f"./models/distance{distance}_ibm_dem.pt" if finetuned else f"./models/distance{distance}.pt"
+    model_path = f"./models/distance{distance}_ibm_real.pt" if finetuned else f"./models/distance{distance}.pt"
     ckpt = torch.load(model_path, weights_only=False)
     model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
     model.eval()
@@ -335,8 +327,8 @@ def decode(distance: int, T: int, job_path: str, finetuned: bool = False):
 
 if __name__ == "__main__":
 
-    D, T = 5, 10
-    JOB = "jobs/dist5/job_d5_T10_shots100000_d7jman1s7cos73ek3djg.json"
+    D, T = 3, 10
+    JOB = "jobs/dist3/job_d3_T10_shots100000_d7b87q15a5qc73dn58rg_.json"
 
     sc = SurfaceCodeCircuit(distance=D, T=T)
     dataset = IBMJobDecoder(sc, job_path=JOB, dt=2, k=20)

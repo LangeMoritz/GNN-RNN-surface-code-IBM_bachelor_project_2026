@@ -13,7 +13,6 @@ from utils import TrainingLogger
 D, T = 3, 10
 TRAIN_JOB_A = "jobs/dist3/job_d3_T10_shots100000_d7b87q15a5qc73dn58rg_.json"
 TRAIN_JOB_B = "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
-TEST_JOB = "jobs/dist3/job_d7767p52b89c73d479pg_d3_T10_shots10000.json"
 PRETRAINED = f"models/distance{D}.pt"
 SAVE_NAME = f"distance{D}_ibm_real"
 PATIENCE = 30
@@ -21,7 +20,7 @@ PATIENCE = 30
 args = Args(
     distance=D,
     dt=2,
-    batch_size=256,
+    batch_size=512,
     n_batches=400,
     n_epochs=200,
     lr=3e-5,
@@ -50,30 +49,27 @@ def _concat_ibm_decoders(sc, datasets):
 
 
 sc = SurfaceCodeCircuit(distance=D, T=T)
-train_a, val_a = split_ibm_job(
-    sc, TRAIN_JOB_A, ratios=[0.90, 0.10], seed=42,
+# Job A: 70/10/20 train/val/test — test held out from same calibration session as training
+train_a, val_a, real_test = split_ibm_job(
+    sc, TRAIN_JOB_A, ratios=[0.70, 0.10, 0.20], seed=42,
     dt=args.dt, k=args.k, batch_size=args.batch_size, device=args.device,
 )
+# Job B: 90/10 train/val — entire job contributes to train+val
 train_b, val_b = split_ibm_job(
     sc, TRAIN_JOB_B, ratios=[0.90, 0.10], seed=43,
     dt=args.dt, k=args.k, batch_size=args.batch_size, device=args.device,
 )
 
-real_test = IBMJobDecoder(
-    sc, job_path=TEST_JOB, dt=args.dt, k=args.k,
-    batch_size=args.batch_size, device=args.device,
-)
-real_test._load_job_data()
-
 real_train = _concat_ibm_decoders(sc, [train_a, train_b])
 real_val = _concat_ibm_decoders(sc, [val_a, val_b])
 
-print(f"TRAIN_JOB_A: {TRAIN_JOB_A}")
-print(f"TRAIN_JOB_B: {TRAIN_JOB_B}")
-print(f"TEST_JOB:    {TEST_JOB}")
-print(f"Real shots — train: {len(real_train.logical_flips)}, "
-    f"val: {len(real_val.logical_flips)}, "
-      f"test: {len(real_test.logical_flips)}")
+print(f"TRAIN_JOB_A: {TRAIN_JOB_A}  (70/10/20 train/val/test)")
+print(f"TRAIN_JOB_B: {TRAIN_JOB_B}  (90/10 train/val)")
+print(f"Real shots — train: {len(real_train.logical_flips)} "
+      f"(A:{len(train_a.logical_flips)}+B:{len(train_b.logical_flips)}), "
+      f"val: {len(real_val.logical_flips)} "
+      f"(A:{len(val_a.logical_flips)}+B:{len(val_b.logical_flips)}), "
+      f"test: {len(real_test.logical_flips)} (held out from A)")
 
 logger = TrainingLogger(statsfile="finetune_real")
 model.train_model(
