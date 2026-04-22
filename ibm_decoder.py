@@ -151,9 +151,9 @@ class IBMJobDecoder:
         Only fired detectors become nodes.
 
         Returns:
-            coords: float32 (n_nodes, 5) with columns [x, y, t_raw, is_X, is_Z].
+            coords: (n_nodes, 5) with columns [x, y, t_raw, is_X, is_Z].
                     t_raw is the raw round index; caller applies dt chunking.
-            shot_idx: int64 (n_nodes,) shot/row each node came from.
+            shot_idx: (n_nodes,) shot/row each node came from.
         """
         shot_idx, t_idx, anc_idx = np.where(detection_batch)
         coords = np.empty((shot_idx.size, 5), dtype=np.float32)
@@ -262,10 +262,80 @@ def split_ibm_job(sc: SurfaceCodeCircuit, job_path: str, ratios, seed: int,
     return splits
 
 
-def evaluate_dataset(model, dataset, n_batches: int = 20) -> dict:
-    """Per-class + overall accuracy of ``model`` over ``n_batches`` from ``dataset``.
+def concat_ibm_decoders(datasets):
+    """
+    Merge pre-loaded IBMJobDecoders into one, skipping __init__.
+    Shares the template's (_detector_coords, etc.) state; overrides only
+    detections and logical_flips with the concatenated arrays. The
+    event-filter cache is cleared so the merged dataset rebuilds its own.
+    """
+    if len(datasets) == 1:
+        return datasets[0]
+    template = datasets[0]
+    ds = IBMJobDecoder.__new__(IBMJobDecoder)
+    ds.__dict__.update(template.__dict__)
+    ds.detections = np.concatenate([d.detections for d in datasets], axis=0)
+    ds.logical_flips = np.concatenate([d.logical_flips for d in datasets], axis=0)
+    ds.__dict__.pop('_det_filtered', None)
+    ds.__dict__.pop('_flips_filtered', None)
+    return ds
 
-    Returns a dict with keys: ``acc``, ``acc_0``, ``acc_1``, ``n_0``, ``n_1``.
+
+def prepare_real_datasets(sc: SurfaceCodeCircuit, train_jobs: list[str], *,
+                          dt: int, k: int, batch_size: int, device=None,
+                          test_ratio: float = 0.20, val_ratio: float = 0.10,
+                          seed: int = 42, verbose: bool = True):
+    """Build (real_train, real_val, real_test) from one or more IBM job files.
+
+    - The first job is split [1 - test_ratio - val_ratio, val_ratio,
+      test_ratio] -> train/val/test.
+    - Any additional jobs are split [1 - val_ratio, val_ratio] ->
+      train/val. Their train and val slices are concatenated onto the first
+      job's.
+
+    So TRAIN_JOBS = [one_job] gives a pure 70/10/20§, while
+    TRAIN_JOBS = [job_a, job_b] gives the two-job 70/10/20 + 90/10 pattern.
+    """
+    train_ratio_head = 1.0 - test_ratio - val_ratio
+
+    train_head, val_head, real_test = split_ibm_job(
+        sc, train_jobs[0],
+        ratios=[train_ratio_head, val_ratio, test_ratio], seed=seed,
+        dt=dt, k=k, batch_size=batch_size, device=device,
+    )
+    train_parts = [train_head]
+    val_parts = [val_head]
+    per_job_sizes = [(train_jobs[0], len(train_head.logical_flips),
+                      len(val_head.logical_flips), len(real_test.logical_flips))]
+
+    for i, job in enumerate(train_jobs[1:], start=1):
+        t_i, v_i = split_ibm_job(
+            sc, job, ratios=[1.0 - val_ratio, val_ratio], seed=seed + i,
+            dt=dt, k=k, batch_size=batch_size, device=device,
+        )
+        train_parts.append(t_i)
+        val_parts.append(v_i)
+        per_job_sizes.append((job, len(t_i.logical_flips),
+                              len(v_i.logical_flips), 0))
+
+    real_train = concat_ibm_decoders(train_parts)
+    real_val = concat_ibm_decoders(val_parts)
+
+    if verbose:
+        for job, nt, nv, ntst in per_job_sizes:
+            print(f"  {job}  -> train={nt}, val={nv}"
+                  + (f", test={ntst}" if ntst else ""))
+        print(f"Real shots — train: {len(real_train.logical_flips)}, "
+              f"val: {len(real_val.logical_flips)}, "
+              f"test: {len(real_test.logical_flips)}")
+
+    return real_train, real_val, real_test
+
+
+def evaluate_dataset(model, dataset, n_batches: int = 20) -> dict:
+    """
+    Per-class + overall accuracy of model over n_batches from dataset.
+    Returns a dict with keys: acc, acc_0, acc_1, n_0, n_1.
     """
     model.eval()
     n0, n1, c0, c1 = 0, 0, 0, 0

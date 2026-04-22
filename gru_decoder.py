@@ -2,7 +2,7 @@ import torch, time, os
 import torch.nn as nn 
 from data import Dataset
 from args import Args
-from utils import GraphConvLayer, TrainingLogger, group, standard_deviation
+from utils import GraphConvLayer, TrainingLogger, group, standard_deviation, lfr_per_round
 from torch_geometric.nn import global_mean_pool
 from tqdm import tqdm
 from torch.optim.lr_scheduler import LambdaLR
@@ -146,6 +146,10 @@ class GRUDecoder(nn.Module):
                             f"(c0={val_metrics['acc_0']:.3f}, "
                             f"c1={val_metrics['acc_1']:.3f}, "
                             f"n1/N={val_metrics['n_1'] / (val_metrics['n_0'] + val_metrics['n_1']):.2f})")
+                    # LFR/round if we can read T from the val dataset
+                    T = getattr(val_dataset, "t", None) or getattr(val_dataset, "T", None)
+                    if T and val_acc:
+                        msg += f", LFR/rd={lfr_per_round(val_acc, T) * 100:.2f}%"
                 print(msg, flush=True)
 
             # Best-model selection: val accuracy if val provided, else train accuracy

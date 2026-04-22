@@ -2,28 +2,27 @@
 Two-phase fine-tuning:
   Phase A — train on DEM-sampled data with real val set (early stop).
   Phase B — continue training on real hardware shots with real val set.
-
-Train job is split 85/15 train/val; the separate TEST_JOB is used in full as
-the held-out test set.
 """
 import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
 
-import torch
 import numpy as np
+import torch
 from args import Args
 from gru_decoder import GRUDecoder
 from surface_code_miami import SurfaceCodeCircuit
-from ibm_decoder import IBMJobDecoder, split_ibm_job, evaluate_dataset
+from ibm_decoder import prepare_real_datasets, evaluate_dataset
 from dem_dataset import DEMDataset
 from build_dem_from_detection_events import build_dem_from_detection_events
 from stim_alignment import build_stim_alignment, ibm_detections_to_stim_order
-from utils import TrainingLogger
+from utils import TrainingLogger, print_test_result
 
 
 D, T = 3, 10
-TRAIN_JOB = "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
-TEST_JOB = "jobs/dist3/job_d3_T10_shots10000_d7b87q15a5qc73dn58rg_.json"
+TRAIN_JOBS = [
+    "jobs/dist3/job_d3_T10_shots100000_d7b87q15a5qc73dn58rg_.json",
+    "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json",
+]
 
 PRETRAINED = f"models/distance{D}.pt"
 SAVE_NAME = f"distance{D}_ibm_dem_real"
@@ -31,59 +30,52 @@ PATIENCE_A = 30
 PATIENCE_B = 50
 
 
-# Phase A (DEM) and Phase B (real)
+# Phase A (DEM-sampled) and Phase B (real hardware)
 args_dem = Args(
     distance=D,
     dt=2,
-    batch_size=256,
-    n_batches=128,
+    batch_size=512,
+    n_batches=400,
     n_epochs=200,
     lr=3e-4,
-    min_lr=1e-5,
+    min_lr=1e-6,
 )
-# Phase B
 args_real = Args(
     distance=D,
     dt=2,
-    batch_size=1024,
-    n_batches=70,
+    batch_size=256,
+    n_batches=400,
     n_epochs=200,
     lr=5e-5,
     min_lr=1e-6,
 )
 
-# --- Split real shots: train job 85/15 train/val
+
+# Build train/val/test from TRAIN_JOBS
 sc = SurfaceCodeCircuit(distance=D, T=T)
-real_train, real_val = split_ibm_job(
-    sc, TRAIN_JOB, ratios=[0.85, 0.15], seed=42,
-    dt=args_real.dt, k=args_real.k, batch_size=args_real.batch_size, device=args_real.device,
-)
-real_test = IBMJobDecoder(
-    sc, job_path=TEST_JOB, dt=args_real.dt, k=args_real.k,
+real_train, real_val, real_test = prepare_real_datasets(
+    sc, TRAIN_JOBS,
+    dt=args_real.dt, k=args_real.k,
     batch_size=args_real.batch_size, device=args_real.device,
 )
-real_test._load_job_data()
 
-print(f"TRAIN_JOB: {TRAIN_JOB}")
-print(f"TEST_JOB:  {TEST_JOB}")
-print(f"Real shots — train: {len(real_train.logical_flips)}, "
-      f"val: {len(real_val.logical_flips)}, test: {len(real_test.logical_flips)}")
-
-# --- DEM calibrated from the full train job
+# DEM calibrated from ALL train+val detections (test excluded)
 alignment = build_stim_alignment(sc, rounds=T)
-all_train_det = np.concatenate([real_train.detections, real_val.detections], axis=0)
+all_train_det = np.concatenate(
+    [real_train.detections, real_val.detections], axis=0,
+)
 det_stim = ibm_detections_to_stim_order(
     all_train_det, alignment.ibm_middle_order, alignment.ibm_z_order,
 )
-print(f"Calibrating DEM from {len(det_stim)} shots (full train job)")
+print(f"Calibrating DEM from {len(det_stim)} shots (all train+val, test excluded)")
 dem = build_dem_from_detection_events(alignment.circuit, det_stim)
 
-dem_train = DEMDataset(args_dem, dem=dem, rounds=T, circuit=alignment.circuit,
-                       detector_is_z=alignment.detector_is_z)
-# dem_val = DEMDataset(args_dem, dem=dem, rounds=T, circuit=alignment.circuit,
-#                      detector_is_z=alignment.detector_is_z)
+dem_train = DEMDataset(
+    args_dem, dem=dem, rounds=T, circuit=alignment.circuit,
+    detector_is_z=alignment.detector_is_z,
+)
 
-# --- Model + phase A
+# Model + Phase A
 model = GRUDecoder(args_dem)
 ckpt = torch.load(PRETRAINED, weights_only=False, map_location=args_dem.device)
 model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
@@ -97,7 +89,7 @@ model.train_model(
     logger=logger_a,
 )
 
-# --- Phase B: continue on real hardware shots
+# Phase B: continue on real hardware shots
 # Swap model args so the new optimizer uses the real-phase LR schedule.
 model.args = args_real
 
@@ -109,12 +101,6 @@ model.train_model(
     save=SAVE_NAME, logger=logger_b,
 )
 
-# --- Final evaluation on held-out real test
+# Final evaluation on held-out real test
 real_test_m = evaluate_dataset(model, real_test, n_batches=40)
-acc = real_test_m["acc"]
-lfr_round = 1.0 - acc ** (1.0 / T) if acc > 0 else 1.0
-print(f"\nReal test:")
-print(f" acc = {acc:.4f}  (c0={real_test_m['acc_0']:.4f}, c1={real_test_m['acc_1']:.4f})")
-print(f" shots = {real_test_m['n_0'] + real_test_m['n_1']}  "
-      f"(class-0: {real_test_m['n_0']}, class-1: {real_test_m['n_1']})")
-print(f" LFR/round = {lfr_round:.4f}  (1 - acc^(1/T) with T={T})")
+print_test_result(real_test_m, T)

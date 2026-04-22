@@ -104,3 +104,18 @@ def standard_deviation(p, n):
     https://en.wikipedia.org/wiki/Binomial_distribution
     """
     return np.sqrt(p * (1 - p) / n)
+
+
+def lfr_per_round(acc: float, T: int) -> float:
+    """Logical failure rate per round: 1 - acc^(1/T)."""
+    return 1.0 - acc ** (1.0 / T)
+
+
+def print_test_result(metrics: dict, T: int, label: str = "Real test") -> None:
+    """Pretty-print a test-set evaluation dict from evaluate_dataset."""
+    acc = metrics["acc"]
+    n = metrics["n_0"] + metrics["n_1"]
+    print(f"\n{label}:")
+    print(f" acc = {acc:.4f}  (c0={metrics['acc_0']:.4f}, c1={metrics['acc_1']:.4f})")
+    print(f" shots = {n}  (class-0: {metrics['n_0']}, class-1: {metrics['n_1']})")
+    print(f" LFR/round = {lfr_per_round(acc, T):.4f}  (1 - acc^(1/T) with T={T})")
