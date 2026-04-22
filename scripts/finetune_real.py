@@ -16,14 +16,13 @@ PRETRAINED = f"models/distance{D}.pt"
 SAVE_NAME = f"distance{D}_ibm_real"
 PATIENCE = 40
 
-# batch_size * n_batches = 8192 * 11 = 90_112, covers the 85k train split once per epoch
 args = Args(
     distance=D,
     dt=2,
     batch_size=8192,
     n_batches=11,
-    n_epochs=140,
-    lr=5e-5,
+    n_epochs=200,
+    lr=2e-4,
     min_lr=1e-6,
 )
 
@@ -34,7 +33,7 @@ model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
 model.to(args.device)
 
 sc = SurfaceCodeCircuit(distance=D, T=T)
-# Train job: 85/15 train/val split (test comes from the separate TEST_JOB).
+# Train job: 85/15 train/val split
 real_train, real_val = split_ibm_job(
     sc, TRAIN_JOB, ratios=[0.85, 0.15], seed=42,
     dt=args.dt, k=args.k, batch_size=args.batch_size, device=args.device,

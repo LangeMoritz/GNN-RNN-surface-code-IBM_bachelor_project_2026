@@ -1,20 +1,20 @@
 """
 Two-phase fine-tuning:
-  Phase A — train on DEM-sampled data with DEM val set (early stop).
+  Phase A — train on DEM-sampled data with real val set (early stop).
   Phase B — continue training on real hardware shots with real val set.
 
-Final evaluation on the same held-out real test split used by the DEM-only
-and real-only scripts (same seed=42, same 75/15/15 split).
+Train job is split 85/15 train/val; the separate TEST_JOB is used in full as
+the held-out test set.
 """
 import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
 
 import torch
-
+import numpy as np
 from args import Args
 from gru_decoder import GRUDecoder
 from surface_code_miami import SurfaceCodeCircuit
-from ibm_decoder import split_ibm_job, evaluate_dataset
+from ibm_decoder import IBMJobDecoder, split_ibm_job, evaluate_dataset
 from dem_dataset import DEMDataset
 from build_dem_from_detection_events import build_dem_from_detection_events
 from stim_alignment import build_stim_alignment, ibm_detections_to_stim_order
@@ -22,7 +22,8 @@ from utils import TrainingLogger
 
 
 D, T = 3, 10
-JOB = "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
+TRAIN_JOB = "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
+TEST_JOB = "jobs/dist3/job_d3_T10_shots10000_d7b87q15a5qc73dn58rg_.json"
 
 PRETRAINED = f"models/distance{D}.pt"
 SAVE_NAME = f"distance{D}_ibm_dem_real"
@@ -51,21 +52,30 @@ args_real = Args(
     min_lr=1e-6,
 )
 
-# --- Split real shots
+# --- Split real shots: train job 85/15 train/val
 sc = SurfaceCodeCircuit(distance=D, T=T)
-real_train, real_val, real_test = split_ibm_job(
-    sc, JOB, ratios=[0.70, 0.15, 0.15], seed=42,
+real_train, real_val = split_ibm_job(
+    sc, TRAIN_JOB, ratios=[0.85, 0.15], seed=42,
     dt=args_real.dt, k=args_real.k, batch_size=args_real.batch_size, device=args_real.device,
 )
+real_test = IBMJobDecoder(
+    sc, job_path=TEST_JOB, dt=args_real.dt, k=args_real.k,
+    batch_size=args_real.batch_size, device=args_real.device,
+)
+real_test._load_job_data()
+
+print(f"TRAIN_JOB: {TRAIN_JOB}")
+print(f"TEST_JOB:  {TEST_JOB}")
 print(f"Real shots — train: {len(real_train.logical_flips)}, "
       f"val: {len(real_val.logical_flips)}, test: {len(real_test.logical_flips)}")
 
-# --- DEM calibrated from the 75% train split
+# --- DEM calibrated from the full train job
 alignment = build_stim_alignment(sc, rounds=T)
+all_train_det = np.concatenate([real_train.detections, real_val.detections], axis=0)
 det_stim = ibm_detections_to_stim_order(
-    real_train.detections, alignment.ibm_middle_order, alignment.ibm_z_order,
+    all_train_det, alignment.ibm_middle_order, alignment.ibm_z_order,
 )
-print(f"Calibrating DEM from {len(det_stim)} train shots...")
+print(f"Calibrating DEM from {len(det_stim)} shots (full train job)")
 dem = build_dem_from_detection_events(alignment.circuit, det_stim)
 
 dem_train = DEMDataset(args_dem, dem=dem, rounds=T, circuit=alignment.circuit,
