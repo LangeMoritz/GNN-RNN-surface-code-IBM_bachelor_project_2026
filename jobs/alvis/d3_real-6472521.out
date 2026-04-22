@@ -1,0 +1,16 @@
+This job can be monitored from: https://job.c3se.chalmers.se/alvis/6472521
+Real-only fine-tune (T=10)
+TRAIN_JOB: jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json
+TEST_JOB:  jobs/dist3/job_d3_T10_shots10000_d7b87q15a5qc73dn58rg_.json
+Real shots — train: 85000, val: 15000, test: 100000
+Epoch 10: loss=0.2951, acc=0.8510, val_acc=0.8539 (c0=0.944, c1=0.608, n1/N=0.27)
+Epoch 20: loss=0.2843, acc=0.8585, val_acc=0.8608 (c0=0.936, c1=0.644, n1/N=0.26)
+Epoch 30: loss=0.2800, acc=0.8608, val_acc=0.8574 (c0=0.928, c1=0.649, n1/N=0.25)
+Epoch 40: loss=0.2758, acc=0.8629, val_acc=0.8526 (c0=0.926, c1=0.654, n1/N=0.27)
+Epoch 50: loss=0.2744, acc=0.8620, val_acc=0.8565 (c0=0.926, c1=0.661, n1/N=0.26)
+Early stop at epoch 50: no improvement for 30 epochs (best=0.8608).
+
+Real test:
+ acc = 0.8398  (c0=0.9252, c1=0.6201)
+ shots = 10240  (class-0: 7376, class-1: 2864)
+ LFR/round = 0.0173  (1 - acc^(1/T) with T=10)
