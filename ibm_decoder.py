@@ -208,23 +208,18 @@ class IBMJobDecoder:
         chunk_labels = (coords[:, 2] // self.dt).astype(np.int64)
         coords[:, 2] = coords[:, 2] % self.dt
 
-        node_features = torch.from_numpy(coords)
-
         # Map [batch, chunk] -> label integer
         label_map = np.column_stack([batch_labels, chunk_labels])
         label_map, counts = np.unique(label_map, axis=0, return_counts=True)
         labels = np.repeat(np.arange(counts.shape[0]), counts).astype(np.int64)
-        label_map = torch.from_numpy(label_map)
-        labels = torch.from_numpy(labels)
+
+        # Move to GPU before knn_graph so the graph build runs on device.
+        node_features = torch.from_numpy(coords).to(self.device)
+        labels = torch.from_numpy(labels).to(self.device)
+        label_map = torch.from_numpy(label_map).to(self.device)
+        flips = torch.from_numpy(flips_batch[:n, np.newaxis]).to(self.device)
 
         edge_index, edge_attr = self.get_edges(node_features, labels)
-
-        node_features = node_features.to(self.device)
-        flips = torch.from_numpy(flips_batch[:n, np.newaxis]).to(self.device)
-        labels = labels.to(self.device)
-        label_map = label_map.to(self.device)
-        edge_index = edge_index.to(self.device)
-        edge_attr = edge_attr.to(self.device)
 
         return node_features, edge_index, labels, label_map, edge_attr, flips
 

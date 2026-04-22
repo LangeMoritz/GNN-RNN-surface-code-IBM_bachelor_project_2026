@@ -82,7 +82,6 @@ class DEMDataset:
             batch_labels.extend([b_idx] * len(fired))
             chunk_labels.extend(chunks.tolist())
 
-        node_features = torch.from_numpy(np.vstack(all_nodes))
         batch_labels = np.array(batch_labels)
         chunk_labels = np.array(chunk_labels)
 
@@ -90,21 +89,17 @@ class DEMDataset:
         label_map = np.column_stack([batch_labels, chunk_labels])
         label_map, counts = np.unique(label_map, axis=0, return_counts=True)
         labels = np.repeat(np.arange(counts.shape[0]), counts).astype(np.int64)
-        label_map = torch.from_numpy(label_map)
-        labels = torch.from_numpy(labels)
+
+        # Move to GPU before knn_graph so the graph build runs on device.
+        node_features = torch.from_numpy(np.vstack(all_nodes)).to(self.device)
+        labels = torch.from_numpy(labels).to(self.device)
+        label_map = torch.from_numpy(label_map).to(self.device)
+        flips = torch.from_numpy(obs_flips[:, :1].astype(np.int32)).to(self.device)
 
         # Edges
         edge_index = knn_graph(node_features, self.k, batch=labels)
         delta = node_features[edge_index[1]] - node_features[edge_index[0]]
         edge_attr = torch.linalg.norm(delta, ord=self.norm, dim=1)
         edge_attr = 1 / edge_attr ** 2
-
-        # Move to device
-        node_features = node_features.to(self.device)
-        flips = torch.from_numpy(obs_flips[:, :1].astype(np.int32)).to(self.device)
-        labels = labels.to(self.device)
-        label_map = label_map.to(self.device)
-        edge_index = edge_index.to(self.device)
-        edge_attr = edge_attr.to(self.device)
 
         return node_features, edge_index, labels, label_map, edge_attr, flips

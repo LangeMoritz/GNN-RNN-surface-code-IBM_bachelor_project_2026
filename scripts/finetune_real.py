@@ -18,15 +18,15 @@ TRAIN_JOBS = [
 
 PRETRAINED = f"models/distance{D}.pt"
 SAVE_NAME = f"distance{D}_ibm_real"
-PATIENCE = 30
+PATIENCE = 50
 
 args = Args(
     distance=D,
     dt=2,
-    batch_size=512,
+    batch_size=1024,
     n_batches=400,
     n_epochs=200,
-    lr=3e-5,
+    lr=5e-5,
     min_lr=1e-6,
 )
 
