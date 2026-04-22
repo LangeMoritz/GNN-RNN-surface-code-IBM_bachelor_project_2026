@@ -12,5 +12,5 @@ module purge
 module load Python/3.12.3-GCCcore-13.3.0
 source .venv/bin/activate
 
-echo "Run 2 (ablation): real-only fine-tune, skips DEM phase (T=20, dt=2)"
+echo "Real-only fine-tune (T=10)"
 python -u scripts/finetune_real.py
