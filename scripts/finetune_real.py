@@ -19,10 +19,10 @@ PATIENCE = 40
 args = Args(
     distance=D,
     dt=2,
-    batch_size=8192,
-    n_batches=11,
+    batch_size=256,
+    n_batches=400,
     n_epochs=200,
-    lr=2e-4,
+    lr=3e-5,
     min_lr=1e-6,
 )
 
