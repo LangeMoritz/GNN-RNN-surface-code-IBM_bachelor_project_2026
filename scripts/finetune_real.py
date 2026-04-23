@@ -46,7 +46,7 @@ logger = TrainingLogger(statsfile="finetune_real")
 model.train_model(
     dataset=real_train,
     val_dataset=real_val,
-    n_val_batches=30,
+    n_val_batches=50,
     patience=PATIENCE,
     save=SAVE_NAME,
     logger=logger,
