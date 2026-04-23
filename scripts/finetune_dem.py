@@ -11,7 +11,7 @@ import torch
 from args import Args
 from gru_decoder import GRUDecoder
 from surface_code_miami import SurfaceCodeCircuit
-from ibm_decoder import split_ibm_job, evaluate_dataset
+from ibm_decoder import prepare_real_datasets, evaluate_dataset
 from dem_dataset import DEMDataset
 from build_dem_from_detection_events import build_dem_from_detection_events
 from stim_alignment import build_stim_alignment, ibm_detections_to_stim_order
@@ -19,7 +19,10 @@ from utils import TrainingLogger
 
 
 D, T = 3, 10
-JOB = "jobs/dist3/job_d3_T20_shots50000_d7fmgem2cugc739qov6g.json"
+TRAIN_JOBS = [
+    "jobs/dist3/job_d3_T10_shots100000_d7b87q15a5qc73dn58rg_.json",
+    "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json",
+]
 PRETRAINED = f"models/distance{D}.pt"
 SAVE_NAME = f"distance{D}_ibm_dem"
 PATIENCE = 50
@@ -28,22 +31,23 @@ args = Args(
     distance=D,
     dt=2,
     batch_size=2048,
-    n_batches=64,
-    n_epochs=400,
+    n_batches=400,
+    n_epochs=200,
     lr=3e-4,
-    min_lr=1e-5,
+    min_lr=1e-6,
 )
 
-# --- Split real IBM shots 75/15/15 (only train split is used for DEM calibration)
+# --- Split real IBM shots 85/0/15 (only train split is used for DEM calibration)
 sc = SurfaceCodeCircuit(distance=D, T=T)
-real_train, real_val, real_test = split_ibm_job(
-    sc, JOB, ratios=[0.70, 0.15, 0.15], seed=42,
-    dt=args.dt, k=args.k, batch_size=args.batch_size, device=args.device,
+real_train, real_val, real_test = prepare_real_datasets(
+    sc, TRAIN_JOBS, dt=args.dt, k=args.k,
+    batch_size=args.batch_size, device=args.device,
 )
+
 print(f"Real shots — train: {len(real_train.logical_flips)}, "
       f"val: {len(real_val.logical_flips)}, test: {len(real_test.logical_flips)}")
 
-# --- Calibrate DEM from the 75% train split
+# --- Calibrate DEM from the 100% train split
 alignment = build_stim_alignment(sc, rounds=T)
 det_stim = ibm_detections_to_stim_order(
     real_train.detections, alignment.ibm_middle_order, alignment.ibm_z_order,
@@ -69,9 +73,9 @@ model.to(args.device)
 logger = TrainingLogger(logfile="finetune_dem.log", statsfile="finetune_dem")
 model.train_model(
     dataset=dem_train,
-    val_dataset=real_val,
+    val_dataset=None,
     n_val_batches=30,
-    patience=PATIENCE,
+    patience=None,
     save=SAVE_NAME,
     logger=logger,
 )

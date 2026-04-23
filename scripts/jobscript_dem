@@ -2,7 +2,7 @@
 #SBATCH -A NAISS2025-5-525      # Project
 #SBATCH -p alvis                # Partition
 #SBATCH -t 0-02:00:00           # time limit days-hours:minutes:seconds
-#SBATCH --gpus-per-node=A40:1   # GPUs 64GB of RAM; cost factor 1.0
+#SBATCH --gpus-per-node=T4:1
 #SBATCH --output=jobs/alvis/%x-%j.out
 #SBATCH --job-name=d3_dem
 
