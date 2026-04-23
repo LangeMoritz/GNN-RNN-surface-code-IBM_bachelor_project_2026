@@ -1,0 +1,12 @@
+This job can be monitored from: https://job.c3se.chalmers.se/alvis/6481521
+Run 1: DEM-only fine-tune (T=10, dt=2)
+  jobs/dist3/job_d3_T10_shots100000_d7b87q15a5qc73dn58rg_.json  -> train=80000, val=0, test=20000
+  jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json  -> train=100000, val=0
+Real shots — train: 180000, val: 0, test: 20000
+Real shots — train: 180000, val: 0, test: 20000
+Calibrating DEM from 180000 train shots...
+Epoch 10: loss=0.2775, acc=0.8803
+Epoch 20: loss=0.2680, acc=0.8849
+Epoch 30: loss=0.2661, acc=0.8862
+Epoch 40: loss=0.2631, acc=0.8879
+slurmstepd: error: *** JOB 6481521 ON alvis2-03 CANCELLED AT 2026-04-23T14:59:53 DUE TO TIME LIMIT ***

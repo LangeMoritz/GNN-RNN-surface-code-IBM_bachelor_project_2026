@@ -9,22 +9,21 @@ from ibm_decoder import prepare_real_datasets, evaluate_dataset
 from utils import TrainingLogger, print_test_result
 
 
-D, T = 3, 10
+D, T = 3, 20
 
 TRAIN_JOBS = [
-    "jobs/dist3/job_d3_T10_shots100000_d7b87q15a5qc73dn58rg_.json",
-    "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json",
+    "jobs/dist3/job_d3_T20_shots50000_d7fmgem2cugc739qov6g.json",
 ]
 
-PRETRAINED = f"models/distance{D}.pt"
-SAVE_NAME = f"distance{D}_ibm_real"
-PATIENCE = 50
+PRETRAINED = f"models/distance{D}_ibm_real.pt"
+SAVE_NAME = f"distance{D}_ibm_real_t10t20"
+PATIENCE = 40
 
 args = Args(
     distance=D,
     dt=2,
-    batch_size=1024,
-    n_batches=400,
+    batch_size=256,
+    n_batches=200,
     n_epochs=200,
     lr=5e-5,
     min_lr=1e-6,
