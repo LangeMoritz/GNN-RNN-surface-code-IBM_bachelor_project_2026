@@ -39,24 +39,24 @@ CHIP_MAP = {
         "x_type": {0, 1, 3, 5, 8, 10, 13, 15, 18, 20, 22, 23},
     },
 }
-#     5: {
-#         "data": [
-#             51, 42, 33, 24, 15,
-#             62, 53, 44, 35, 26,
-#             73, 64, 55, 46, 37,
-#             84, 75, 66, 57, 48,
-#             95, 86, 77, 68, 59,
-#         ],
-#         "ancilla": [
-#             41, 23,
-#             72, 52, 43, 34, 25,
-#             63, 54, 45, 36, 16,
-#             94, 74, 65, 56, 47,
-#             85, 76, 67, 58, 38,
-#             87, 69,
-#         ],
-#         "x_type": {0, 1, 4, 6, 7, 9, 14, 16, 17, 19, 22, 23},
-#     },
+#         5: {
+#             "data": [
+#                 51, 42, 33, 24, 15,
+#                 62, 53, 44, 35, 26,
+#                 73, 64, 55, 46, 37,
+#                 84, 75, 66, 57, 48,
+#                 95, 86, 77, 68, 59,
+#             ],
+#             "ancilla": [
+#                 41, 23,
+#                 72, 52, 43, 34, 25,
+#                 63, 54, 45, 36, 16,
+#                 94, 74, 65, 56, 47,
+#                 85, 76, 67, 58, 38,
+#                 87, 69,
+#             ],
+#             "x_type": {0, 1, 4, 6, 7, 9, 14, 16, 17, 19, 22, 23},
+#         },
 # }
    
 
@@ -206,12 +206,12 @@ def save_job_result(job_id: str, distance: int, T: int, shots: int):
 
 # Adjust params here, uncomment one step at a time.
 if __name__ == "__main__":
-    D, T, SHOTS = 5, 10, 100
+    D, T, SHOTS = 3, 20, 100000
     # 1: Submit to IBM
     #submit_to_ibm(distance=D, T=T, shots=SHOTS)
 
     # 2: After job completes, save results (paste your job ID)
-    JOB = "d7jman1s7cos73ek3djg"
+    JOB = "d7l210a8ui0s73b5s25g"
     #save_job_result(JOB, distance=D, T=T, shots=SHOTS)
 
     # 3: Decode with GNN-RNN
