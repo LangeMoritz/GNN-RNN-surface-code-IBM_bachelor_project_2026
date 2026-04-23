@@ -25,15 +25,15 @@ TRAIN_JOBS = [
 ]
 PRETRAINED = f"models/distance{D}.pt"
 SAVE_NAME = f"distance{D}_ibm_dem"
-PATIENCE = 50
+PATIENCE = 80
 
 args = Args(
     distance=D,
     dt=2,
-    batch_size=2048,
-    n_batches=400,
-    n_epochs=200,
-    lr=3e-4,
+    batch_size=1024,
+    n_batches=600,
+    n_epochs=300,
+    lr=1e-4,
     min_lr=1e-6,
 )
 
@@ -73,9 +73,9 @@ model.to(args.device)
 logger = TrainingLogger(logfile="finetune_dem.log", statsfile="finetune_dem")
 model.train_model(
     dataset=dem_train,
-    val_dataset=None,
-    n_val_batches=30,
-    patience=None,
+    val_dataset=dem_val,
+    n_val_batches=100,
+    patience=PATIENCE,
     save=SAVE_NAME,
     logger=logger,
 )

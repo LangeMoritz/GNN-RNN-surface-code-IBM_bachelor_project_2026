@@ -160,7 +160,7 @@ class SurfaceCodeCircuit:
 
 
 def job_path(job_id, distance, T, shots):
-    return os.path.join("jobs", f"job_d{distance}_T{T}_shots{shots}_{job_id}.json")
+    return os.path.join("jobs", f"d{distance}_T{T}_shots{shots}_{job_id}.json")
 
 
 def get_runtime_service():
@@ -206,13 +206,13 @@ def save_job_result(job_id: str, distance: int, T: int, shots: int):
 
 # Adjust params here, uncomment one step at a time.
 if __name__ == "__main__":
-    D, T, SHOTS = 3, 20, 100000
+    D, T, SHOTS = 3, 20, 10000
     # 1: Submit to IBM
     #submit_to_ibm(distance=D, T=T, shots=SHOTS)
 
     # 2: After job completes, save results (paste your job ID)
-    JOB = "d7l210a8ui0s73b5s25g"
-    #save_job_result(JOB, distance=D, T=T, shots=SHOTS)
+    JOB = "d7l2rh0e7usc73f5f6b0"
+    save_job_result(JOB, distance=D, T=T, shots=SHOTS)
 
     # 3: Decode with GNN-RNN
     #from ibm_decoder import decode
