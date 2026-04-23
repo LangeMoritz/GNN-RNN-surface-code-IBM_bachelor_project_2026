@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #SBATCH -A NAISS2025-5-525      # Project
 #SBATCH -p alvis                # Partition
-#SBATCH -t 0-02:00:00           # time limit days-hours:minutes:seconds
+#SBATCH -t 0-08:00:00           # time limit days-hours:minutes:seconds
 #SBATCH --gpus-per-node=T4:1
 #SBATCH --output=jobs/alvis/%x-%j.out
-#SBATCH --job-name=d3_dem
+#SBATCH --job-name=d3_dem_overfit
 
 cd "$SLURM_SUBMIT_DIR"
 
@@ -12,5 +12,5 @@ module purge
 module load Python/3.12.3-GCCcore-13.3.0
 source .venv/bin/activate
 
-echo "Run 1: DEM-only fine-tune (T=10, dt=2)"
+echo "DEM-only fine-tune (T=10, dt=2)"
 python -u scripts/finetune_dem.py
