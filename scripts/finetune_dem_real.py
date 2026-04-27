@@ -43,9 +43,9 @@ TRAIN_JOBS = [
 ]
 
 PRETRAINED = f"models/distance{D}.pt"
-SAVE_NAME = f"distance{D}_ibm_dem_real_sliding"
-PATIENCE_A = 40
-PATIENCE_B = 60
+SAVE_NAME = f"distance{D}_ibm_dem_real"
+PATIENCE_A = 20
+PATIENCE_B = 30
 SAVE_CONSOLE_LOG = True
 CONSOLE_LOG_PATH = f"jobs/logs/{SAVE_NAME}_console.log"
 
@@ -63,9 +63,9 @@ args_dem = Args(
     distance=D,
     dt=2,
     batch_size=256,
-    n_batches=195,
-    n_epochs=300,
-    lr=3e-4, # testa 5e-6
+    n_batches=100,
+    n_epochs=150,
+    lr=1e-4, # testa 5e-6
     min_lr=1e-6,
 )
 # Phase B (real samples)
@@ -73,7 +73,7 @@ args_real = Args(
     distance=D,
     dt=2,
     batch_size=64,
-    n_batches=1600,
+    n_batches=800,
     n_epochs=300,
     lr=2e-5, # 2e-5 if overfitts, 1e-4 if underfits
     min_lr=1e-6,
