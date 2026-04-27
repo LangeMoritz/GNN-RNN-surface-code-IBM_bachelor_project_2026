@@ -6,6 +6,7 @@ from qiskit_ibm_runtime import RuntimeDecoder
 from torch_geometric.nn.pool import knn_graph
 from surface_code_miami import SurfaceCodeCircuit
 from stim_alignment import build_stim_alignment
+from data import Dataset
 
 
 def parse_ibm_job(job_path, t, n_data, n_measures, simulator=False):
@@ -75,7 +76,7 @@ class IBMJobDecoder:
     def __init__(self, sc: SurfaceCodeCircuit, job_path: str,
                  simulator: bool = False, k: int = 20, dt: int = 2,
                  norm: float = torch.inf, batch_size: int = 256,
-                 device: torch.device = None):
+                 device: torch.device = None, sliding: bool = True):
         self.distance = sc.distance
         self.t = sc.T
         self.num_ancilla = len(sc.ancilla_physical)
@@ -87,6 +88,7 @@ class IBMJobDecoder:
         self.norm = norm
         self.batch_size = batch_size
         self.device = device or torch.device("cpu")
+        self.sliding = sliding
         
         # Stabilizer-to-data-qubit map for final syndrome reconstruction
         self._stabilizer_data = sc.stabilizer_data
@@ -98,6 +100,10 @@ class IBMJobDecoder:
             logical_x, logical_y = alignment.ibm_ancilla_xy[i]
             is_z = 0.0 if i in sc.x_type else 1.0
             self._detector_coords[i] = [logical_x, logical_y, is_z, 1.0 - is_z]
+        self._is_z_by_xy = {
+            (int(x), int(y)): is_z
+            for x, y, is_z, _ in self._detector_coords
+        }
 
     def _load_job_data(self):
         """
@@ -172,6 +178,9 @@ class IBMJobDecoder:
         edge_attr = 1 / edge_attr ** 2
         return edge_index, edge_attr
 
+    def _sliding_window(self, node_features):
+        return Dataset.get_sliding_window(self, node_features, self.t)
+
     def _ensure_event_filter(self):
         """Cache the has-event filtered arrays so we do it once, not per batch."""
         if hasattr(self, '_det_filtered'):
@@ -198,9 +207,26 @@ class IBMJobDecoder:
         # Build node features (vectorized across all shots in the batch)
         coords, batch_labels = self._get_node_features(det_batch)
 
-        # Chunk by dt — t_raw values 0..T are small ints exactly representable in float32
-        chunk_labels = (coords[:, 2] // self.dt).astype(np.int64)
-        coords[:, 2] = coords[:, 2] % self.dt
+        # Expand each detector event into every dt-wide window containing it.
+        if self.sliding:
+            node_features = [
+                coords[batch_labels == b_idx, :3].astype(np.int64)
+                for b_idx in range(n)
+            ]
+            node_features, chunk_labels = self._sliding_window(node_features)
+            batch_labels = np.repeat(
+                np.arange(n),
+                [len(features) for features in node_features],
+            )
+            coords = np.vstack(node_features)
+            is_z = np.array(
+                [self._is_z_by_xy[(int(x), int(y))] for x, y in coords[:, :2]],
+                dtype=bool,
+            )[:, np.newaxis]
+            coords = np.hstack((coords, is_z, ~is_z)).astype(np.float32)
+        else:
+            chunk_labels = (coords[:, 2] // self.dt).astype(np.int64)
+            coords[:, 2] = coords[:, 2] % self.dt
 
         # Map [batch, chunk] -> label integer
         label_map = np.column_stack([batch_labels, chunk_labels])
@@ -219,14 +245,15 @@ class IBMJobDecoder:
 
 
 def split_ibm_job(sc: SurfaceCodeCircuit, job_path: str, ratios, seed: int,
-                  dt: int, k: int, batch_size: int, device=None, simulator: bool = False):
+                  dt: int, k: int, batch_size: int, device=None,
+                  simulator: bool = False, sliding: bool = True):
     """
     Parse an IBM job once and return one IBMJobDecoder per split ratio, each
     pre-loaded with its slice of detections and logical flips.
     """
     template = IBMJobDecoder(
         sc, job_path=job_path, simulator=simulator, dt=dt, k=k,
-        batch_size=batch_size, device=device,
+        batch_size=batch_size, device=device, sliding=sliding,
     )
     template._load_job_data()
     n_total = len(template.logical_flips)
@@ -273,7 +300,8 @@ def concat_ibm_decoders(datasets):
 def prepare_real_datasets(sc: SurfaceCodeCircuit, train_jobs: list[str], *,
                           dt: int, k: int, batch_size: int, device=None,
                           test_ratio: float = 0.20, val_ratio: float = 0.10,
-                          seed: int = 42, verbose: bool = True):
+                          seed: int = 42, verbose: bool = True,
+                          sliding: bool = True):
     """Build (real_train, real_val, real_test) from one or more IBM job files.
 
     - The first job is split [1 - test_ratio - val_ratio, val_ratio,
@@ -282,7 +310,7 @@ def prepare_real_datasets(sc: SurfaceCodeCircuit, train_jobs: list[str], *,
       train/val. Their train and val slices are concatenated onto the first
       job's.
 
-    So TRAIN_JOBS = [one_job] gives a pure 70/10/20, while
+    So TRAIN_JOBS = [one_job] gives 70/10/20, while
     TRAIN_JOBS = [job_a, job_b] gives the two-job 70/10/20 + 90/10 pattern.
     """
     train_ratio_head = 1.0 - test_ratio - val_ratio
@@ -290,7 +318,7 @@ def prepare_real_datasets(sc: SurfaceCodeCircuit, train_jobs: list[str], *,
     train_head, val_head, real_test = split_ibm_job(
         sc, train_jobs[0],
         ratios=[train_ratio_head, val_ratio, test_ratio], seed=seed,
-        dt=dt, k=k, batch_size=batch_size, device=device,
+        dt=dt, k=k, batch_size=batch_size, device=device, sliding=sliding,
     )
     train_parts = [train_head]
     val_parts = [val_head]
@@ -300,7 +328,7 @@ def prepare_real_datasets(sc: SurfaceCodeCircuit, train_jobs: list[str], *,
     for i, job in enumerate(train_jobs[1:], start=1):
         t_i, v_i = split_ibm_job(
             sc, job, ratios=[1.0 - val_ratio, val_ratio], seed=seed + i,
-            dt=dt, k=k, batch_size=batch_size, device=device,
+            dt=dt, k=k, batch_size=batch_size, device=device, sliding=sliding,
         )
         train_parts.append(t_i)
         val_parts.append(v_i)

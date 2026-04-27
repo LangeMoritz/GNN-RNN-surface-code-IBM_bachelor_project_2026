@@ -3,6 +3,7 @@ import numpy as np
 import torch
 from torch_geometric.nn.pool import knn_graph
 from args import Args
+from data import Dataset
 
 
 class DEMDataset:
@@ -23,6 +24,7 @@ class DEMDataset:
         self.norm = getattr(args, "norm", torch.inf)
         self.device = args.device
         self.rounds = rounds
+        self.sliding = getattr(args, "sliding", True)
 
         coords = circuit.get_detector_coordinates()
         self._detector_coords = np.array(
@@ -31,6 +33,13 @@ class DEMDataset:
         # Match the coordinate convention used in data.py.
         self._detector_coords[:, :2] /= 2.0
         self._detector_is_z = np.asarray(detector_is_z, dtype=np.float32)
+        self._is_z_by_xy = {
+            (int(x), int(y)): is_z
+            for (x, y, _), is_z in zip(self._detector_coords, self._detector_is_z)
+        }
+
+    def _sliding_window(self, node_features):
+        return Dataset.get_sliding_window(self, node_features, self.rounds)
 
     def generate_batch(self):
         """
@@ -59,7 +68,6 @@ class DEMDataset:
         # Build node features for each shot.
         all_nodes = []
         batch_labels = []
-        chunk_labels = []
 
         for b_idx in range(self.batch_size):
             fired = np.where(det_events[b_idx])[0]
@@ -68,22 +76,37 @@ class DEMDataset:
 
             coords = self._detector_coords[fired]  # [n_fired, 3]
             x, y, t = coords[:, 0], coords[:, 1], coords[:, 2]
-
-            chunks = (t // self.dt).astype(int)
-            t_local = t % self.dt
-
             is_z = self._detector_is_z[fired]
 
             node_feat = np.column_stack([
-                x, y, t_local, is_z, 1.0 - is_z
+                x, y, t, is_z, 1.0 - is_z
             ]).astype(np.float32)
 
             all_nodes.append(node_feat)
             batch_labels.extend([b_idx] * len(fired))
-            chunk_labels.extend(chunks.tolist())
 
         batch_labels = np.array(batch_labels)
-        chunk_labels = np.array(chunk_labels)
+        node_features_np = np.vstack(all_nodes)
+
+        if self.sliding:
+            node_features = [
+                node_features_np[batch_labels == b_idx, :3].astype(np.int64)
+                for b_idx in range(self.batch_size)
+            ]
+            node_features, chunk_labels = self._sliding_window(node_features)
+            batch_labels = np.repeat(
+                np.arange(self.batch_size),
+                [len(features) for features in node_features],
+            )
+            node_features_np = np.vstack(node_features)
+            is_z = np.array(
+                [self._is_z_by_xy[(int(x), int(y))] for x, y in node_features_np[:, :2]],
+                dtype=bool,
+            )[:, np.newaxis]
+            node_features_np = np.hstack((node_features_np, is_z, ~is_z)).astype(np.float32)
+        else:
+            chunk_labels = (node_features_np[:, 2] // self.dt).astype(np.int64)
+            node_features_np[:, 2] = node_features_np[:, 2] % self.dt
 
         # Map [batch, chunk] -> label integer
         label_map = np.column_stack([batch_labels, chunk_labels])
@@ -91,7 +114,7 @@ class DEMDataset:
         labels = np.repeat(np.arange(counts.shape[0]), counts).astype(np.int64)
 
         # Move to GPU before knn_graph so the graph build runs on device.
-        node_features = torch.from_numpy(np.vstack(all_nodes)).to(self.device)
+        node_features = torch.from_numpy(node_features_np).to(self.device)
         labels = torch.from_numpy(labels).to(self.device)
         label_map = torch.from_numpy(label_map).to(self.device)
         flips = torch.from_numpy(obs_flips[:, :1].astype(np.int32)).to(self.device)
