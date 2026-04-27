@@ -15,7 +15,7 @@ from ibm_decoder import prepare_real_datasets, evaluate_dataset
 from dem_dataset import DEMDataset
 from build_dem_from_detection_events import build_dem_from_detection_events
 from stim_alignment import build_stim_alignment, ibm_detections_to_stim_order
-from utils import TrainingLogger
+from utils import TrainingLogger, print_test_result
 
 
 D, T = 3, 10
@@ -81,16 +81,7 @@ model.train_model(
 )
 
 # --- Evaluation
-def _report(name, metrics, T):
-    acc = metrics["acc"]
-    lfr_round = 1.0 - acc ** (1.0 / T) if acc > 0 else 1.0
-    print(f"\n{name}:")
-    print(f"  acc      = {acc:.4f}  (c0={metrics['acc_0']:.4f}, c1={metrics['acc_1']:.4f})")
-    print(f"  shots    = {metrics['n_0'] + metrics['n_1']}  "
-          f"(class-0: {metrics['n_0']}, class-1: {metrics['n_1']})")
-    print(f"  LFR/round = {lfr_round:.4f}  (1 - acc^(1/T) with T={T})")
-
-dem_test = evaluate_dataset(model, dem_test, n_batches=40)
-real_test = evaluate_dataset(model, real_test, n_batches=40)
-_report("DEM test", dem_test, T)
-_report("Real test", real_test, T)
+dem_test_m = evaluate_dataset(model, dem_test, n_batches=40)
+real_test_m = evaluate_dataset(model, real_test, n_batches=40)
+print_test_result(dem_test_m, T, label="DEM test")
+print_test_result(real_test_m, T, label="Real test")
