@@ -43,7 +43,7 @@ TRAIN_JOBS = [
 ]
 
 PRETRAINED = f"models/distance{D}.pt"
-SAVE_NAME = f"distance{D}_ibm_dem_real"
+SAVE_NAME = f"distance{D}_ibm_dem_real_baseline"
 PATIENCE_A = 20
 PATIENCE_B = 30
 SAVE_CONSOLE_LOG = True
@@ -101,7 +101,7 @@ dem = build_dem_from_detection_events(alignment.circuit, det_stim)
 
 dem_train = DEMDataset(
     args_dem, dem=dem, rounds=T, circuit=alignment.circuit,
-    detector_is_z=alignment.detector_is_z, sliding_window=True,
+    detector_is_z=alignment.detector_is_z
 )
 
 # Model + Phase A
@@ -117,8 +117,8 @@ logger_a = TrainingLogger(
 )
 model.train_model(
     dataset=dem_train, val_dataset=real_val,
-    n_val_batches=30, patience=PATIENCE_A,
-    logger=logger_a, sliding_window=True,
+    n_val_batches=100, patience=PATIENCE_A,
+    logger=logger_a
 )
 
 # Phase B: continue on real hardware shots
@@ -132,9 +132,8 @@ logger_b = TrainingLogger(
 )
 model.train_model(
     dataset=real_train, val_dataset=real_val,
-    n_val_batches=30, patience=PATIENCE_B,
-    save=SAVE_NAME, logger=logger_b,
-    sliding_window=True,
+    n_val_batches=100, patience=PATIENCE_B,
+    save=SAVE_NAME, logger=logger_b
 )
 
 # Final evaluation on held-out real test
