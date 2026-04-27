@@ -25,7 +25,7 @@ args = Args(
     batch_size=256,
     n_batches=200,
     n_epochs=200,
-    lr=5e-5,
+    lr=1e-4,
     min_lr=1e-6,
 )
 

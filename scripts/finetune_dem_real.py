@@ -4,6 +4,7 @@ Two-phase fine-tuning:
   Phase B — continue training on real hardware shots with real val set.
 """
 import sys, os
+import atexit
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
 
 import numpy as np
@@ -16,6 +17,23 @@ from dem_dataset import DEMDataset
 from build_dem_from_detection_events import build_dem_from_detection_events
 from stim_alignment import build_stim_alignment, ibm_detections_to_stim_order
 from utils import TrainingLogger, print_test_result
+
+
+class Tee:
+    def __init__(self, *streams):
+        self.streams = streams
+
+    def write(self, data):
+        for stream in self.streams:
+            stream.write(data)
+        self.flush()
+
+    def flush(self):
+        for stream in self.streams:
+            stream.flush()
+
+    def isatty(self):
+        return any(getattr(stream, "isatty", lambda: False)() for stream in self.streams)
 
 
 if torch.cuda.is_available():
@@ -31,8 +49,18 @@ TRAIN_JOBS = [
 
 PRETRAINED = f"models/distance{D}.pt"
 SAVE_NAME = f"distance{D}_ibm_dem_real"
-PATIENCE_A = 20
-PATIENCE_B = 30
+PATIENCE_A = 40
+PATIENCE_B = 60
+SAVE_CONSOLE_LOG = False
+CONSOLE_LOG_PATH = f"jobs/logs/{SAVE_NAME}_console.log"
+
+if SAVE_CONSOLE_LOG:
+    os.makedirs(os.path.dirname(CONSOLE_LOG_PATH), exist_ok=True)
+    _console_log = open(CONSOLE_LOG_PATH, "a", buffering=1)
+    atexit.register(_console_log.close)
+    sys.stdout = Tee(sys.stdout, _console_log)
+    sys.stderr = Tee(sys.stderr, _console_log)
+    print(f"Saving console output to {CONSOLE_LOG_PATH}", flush=True)
 
 
 # Phase A (DEM-sampled)
@@ -41,18 +69,18 @@ args_dem = Args(
     dt=2,
     batch_size=256,
     n_batches=195,
-    n_epochs=200,
-    lr=3e-4,
+    n_epochs=300,
+    lr=3e-4, # testa 5e-6
     min_lr=1e-6,
 )
 # Phase B (real samples)
 args_real = Args(
     distance=D,
     dt=2,
-    batch_size=256,
-    n_batches=400,
-    n_epochs=200,
-    lr=5e-5, # 2e-5 if overfitts, 1e-4 if underfits
+    batch_size=64,
+    n_batches=1600,
+    n_epochs=300,
+    lr=2e-5, # 2e-5 if overfitts, 1e-4 if underfits
     min_lr=1e-6,
 )
 
