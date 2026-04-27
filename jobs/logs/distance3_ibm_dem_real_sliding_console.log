@@ -1,7 +1,7 @@
 Saving console output to jobs/logs/distance3_ibm_dem_real_sliding_console.log
   jobs/dist3/job_d3_T10_shots100000_d7b87q15a5qc73dn58rg_.json  -> train=70000, val=10000, test=20000
   jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json  -> train=90000, val=10000
-Real shots — train: 160000, val: 20000, test: 20000
+Real shots ï¿½ train: 160000, val: 20000, test: 20000
 Calibrating DEM from 180000 shots (all train+val, test excluded)
 
 === Phase A: DEM fine-tune ===
@@ -30,7 +30,7 @@ Epoch 80: loss=0.2596, acc=0.8723, val_acc=0.8672 (c0=0.929, c1=0.703, n1/N=0.27
 Early stop at epoch 84: no improvement for 60 epochs (best=0.8766).
 
 Real test:
- acc = 0.8605  (c0=0.9209, c1=0.7084)
- shots = 2560  (class-0: 1833, class-1: 727)
- P_L = 0.1395
- LFR/round = 0.0149  (1 - acc^(1/T) with T=10)
+ acc = 0.8575  (c0=0.9165, c1=0.6973)
+ shots = 20000  (class-0: 14612, class-1: 5388)
+ P_L = 0.1425
+ LFR/round = 0.0153  (1 - acc^(1/T) with T=10)
