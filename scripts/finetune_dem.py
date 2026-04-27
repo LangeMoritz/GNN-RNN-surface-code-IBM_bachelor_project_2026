@@ -25,7 +25,7 @@ TRAIN_JOBS = [
 ]
 PRETRAINED = f"models/distance{D}.pt"
 SAVE_NAME = f"distance{D}_ibm_dem"
-PATIENCE = 80
+PATIENCE = 50
 
 args = Args(
     distance=D,
