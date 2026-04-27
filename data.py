@@ -13,6 +13,83 @@ class FlipType(Enum):
     BIT = 1
     PHASE = 2
 
+
+def get_sliding_window(
+    node_features: list[np.ndarray],
+    dt: int,
+    sampler_t: int,
+    time_col: int = -1,
+) -> tuple[list[np.ndarray], np.ndarray]:
+    """
+    Returns a sliding window representation of the node features.
+    """
+    chunk_labels = [0] * len(node_features)
+
+    for batch, coordinates in enumerate(node_features):
+        times, counts = np.unique(coordinates[:, time_col], return_counts=True)
+        times = times.astype(np.int64)
+
+        start = times < dt
+        end = times > sampler_t - dt
+        middle = ~(start | end)
+
+        counts[start] *= (times + 1)[start]
+        counts[middle] *= dt
+        counts[end] *= -((times - 1) - sampler_t)[end]
+
+        new_size = np.sum(counts)
+        new_coordinates = np.zeros((new_size, coordinates.shape[1]), dtype=coordinates.dtype)
+        chunk_label = np.zeros(new_size, dtype=np.int64)
+
+        j_values = np.arange(sampler_t - dt + 2)[:, None]
+        time_column = coordinates[:, time_col][None, :]
+
+        mask = (time_column < j_values + dt) & (time_column >= j_values)
+        indices = np.where(mask)
+
+        sorted_idx = np.argsort(indices[0])
+        selected_points = coordinates[indices[1][sorted_idx]].copy()
+        selected_points[:, time_col] -= indices[0][sorted_idx]
+
+        new_coordinates[:len(selected_points)] = selected_points
+        chunk_label[:len(selected_points)] = indices[0][sorted_idx]
+
+        node_features[batch] = new_coordinates
+        chunk_labels[batch] = chunk_label
+
+    chunk_labels = np.concatenate(chunk_labels)
+    return node_features, chunk_labels
+
+
+def labels_from_batch_chunks(
+    batch_labels: np.ndarray,
+    chunk_labels: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Map ordered [batch, chunk] rows to contiguous graph labels.
+    """
+    label_pairs = np.column_stack([batch_labels, chunk_labels])
+    if len(label_pairs) > 1:
+        ordered = (
+            (label_pairs[1:, 0] > label_pairs[:-1, 0])
+            | (
+                (label_pairs[1:, 0] == label_pairs[:-1, 0])
+                & (label_pairs[1:, 1] >= label_pairs[:-1, 1])
+            )
+        )
+        if not np.all(ordered):
+            label_map, labels = np.unique(label_pairs, axis=0, return_inverse=True)
+            labels = labels.astype(np.int64)
+            return labels, label_map
+
+    starts = np.ones(len(label_pairs), dtype=bool)
+    starts[1:] = np.any(label_pairs[1:] != label_pairs[:-1], axis=1)
+    start_idx = np.flatnonzero(starts)
+    counts = np.diff(np.append(start_idx, len(label_pairs)))
+    labels = np.repeat(np.arange(len(counts)), counts).astype(np.int64)
+    return labels, label_pairs[start_idx]
+
+
 class Dataset:
     """
     Class that is used to generate graphs of errors that occur
@@ -111,60 +188,7 @@ class Dataset:
     
     def get_sliding_window(self, node_features: list[np.ndarray], sampler_t: int
                            ) -> tuple[list[np.ndarray], np.ndarray]:
-        
-        # TODO: Improve documentation on this method.
-        """
-        Returns a sliding wiondow representation of the node features
-        """
-        chunk_labels = [0] * len(node_features)  # number of batches
-
-        for batch, coordinates in enumerate(node_features):
-            times, counts = np.unique(coordinates[:, -1], return_counts=True)
-
-            start = times < self.dt
-            end = times > sampler_t - self.dt
-            middle = ~(start | end)
-
-            counts[start] *= (times + 1)[start]
-            counts[middle] *= self.dt
-            counts[end] *= -((times - 1) - sampler_t)[end]
-
-            new_size = np.sum(counts)
-            new_coordinates = np.zeros((new_size, 3), dtype=np.uint64)
-            chunk_label = np.zeros(new_size, dtype=np.uint64)
-
-#           position = 0           
-#           for j in range(self.t-self.dt+2):
-
-#               mask = (coordinates[:,-1] <j+self.dt) & (coordinates[:,-1] >= j)
-#               chunk_size = np.sum(mask)
-
-#               new_coordinates[position : position + chunk_size,:3] = coordinates[mask]
-#               new_coordinates[position : position + chunk_size, -1] -= j
-#               chunk_label[position: position + chunk_size] = j
-#               position += chunk_size
-#           node_features[batch] = new_coordinates
-#           chunk_labels[batch] = chunk_label
-            
-            # Code above vectorized.
-            j_values = np.arange(sampler_t - self.dt + 2)[:, None]  # Column vector for broadcasting
-            time_column = coordinates[:, -1][None, :]  # Row vector for broadcasting
-
-            mask = (time_column < j_values + self.dt) & (time_column >= j_values)  # Shape: (num_j, num_points)
-            indices = np.where(mask)  # Get (j, idx) pairs where mask is True
-
-            sorted_idx = np.argsort(indices[0])  # Sort by j to maintain order
-            selected_points = coordinates[indices[1][sorted_idx]].copy()  # Extract selected rows
-            selected_points[:, -1] -= indices[0][sorted_idx]  # Adjust time values
-
-            new_coordinates[:len(selected_points)] = selected_points
-            chunk_label[:len(selected_points)] = indices[0][sorted_idx]
-
-            node_features[batch] = new_coordinates
-            chunk_labels[batch] = chunk_label
-
-        chunk_labels = np.concatenate(chunk_labels)
-        return node_features, chunk_labels
+        return get_sliding_window(node_features, self.dt, sampler_t)
 
     def get_node_features(self, syndromes: np.ndarray, sampler_idx: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
@@ -310,4 +334,3 @@ if __name__ == "__main__":
     for i in tqdm(range(10)):
         dataset.plot_graph(node_features, edge_index, labels, i)
     print(f"{time.perf_counter() - t0:.3f} seconds")
-

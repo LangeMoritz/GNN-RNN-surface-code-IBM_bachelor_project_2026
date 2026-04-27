@@ -6,7 +6,7 @@ from qiskit_ibm_runtime import RuntimeDecoder
 from torch_geometric.nn.pool import knn_graph
 from surface_code_miami import SurfaceCodeCircuit
 from stim_alignment import build_stim_alignment
-from data import Dataset
+from data import get_sliding_window, labels_from_batch_chunks
 
 
 def parse_ibm_job(job_path, t, n_data, n_measures, simulator=False):
@@ -100,10 +100,6 @@ class IBMJobDecoder:
             logical_x, logical_y = alignment.ibm_ancilla_xy[i]
             is_z = 0.0 if i in sc.x_type else 1.0
             self._detector_coords[i] = [logical_x, logical_y, is_z, 1.0 - is_z]
-        self._is_z_by_xy = {
-            (int(x), int(y)): is_z
-            for x, y, is_z, _ in self._detector_coords
-        }
 
     def _load_job_data(self):
         """
@@ -179,7 +175,7 @@ class IBMJobDecoder:
         return edge_index, edge_attr
 
     def _sliding_window(self, node_features):
-        return Dataset.get_sliding_window(self, node_features, self.t)
+        return get_sliding_window(node_features, self.dt, self.t, time_col=2)
 
     def _ensure_event_filter(self):
         """Cache the has-event filtered arrays so we do it once, not per batch."""
@@ -189,6 +185,35 @@ class IBMJobDecoder:
         self._det_filtered = self.detections[has_event]
         self._flips_filtered = self.logical_flips[has_event]
 
+    def _ensure_node_cache(self):
+        """Cache per-shot node windows for fixed real-data splits."""
+        if hasattr(self, '_node_features_cache'):
+            return
+        self._ensure_event_filter()
+
+        coords, shot_idx = self._get_node_features(self._det_filtered)
+        split_pts = np.searchsorted(shot_idx, np.arange(1, len(self._det_filtered)))
+        node_features = np.split(coords, split_pts)
+
+        if self.sliding:
+            node_features, chunk_labels_flat = self._sliding_window(node_features)
+            lengths = [len(features) for features in node_features]
+            chunk_labels = np.split(chunk_labels_flat, np.cumsum(lengths)[:-1])
+        else:
+            chunk_labels = []
+            for i, features in enumerate(node_features):
+                features = features.copy()
+                chunk_labels.append((features[:, 2] // self.dt).astype(np.int64))
+                features[:, 2] = features[:, 2] % self.dt
+                node_features[i] = features
+
+        self._node_features_cache = [
+            features.astype(np.float32, copy=False) for features in node_features
+        ]
+        self._chunk_labels_cache = [
+            labels.astype(np.int64, copy=False) for labels in chunk_labels
+        ]
+
     def generate_batch(self, indices=None):
         """
         Generates a batch of graphs. If indices is None, samples randomly from
@@ -196,42 +221,23 @@ class IBMJobDecoder:
         """
         self._load_job_data()
         self._ensure_event_filter()
+        self._ensure_node_cache()
 
         if indices is None:
             n = min(self.batch_size, len(self._det_filtered))
             indices = np.random.choice(len(self._det_filtered), n, replace=False)
-        det_batch = self._det_filtered[indices]
         flips_batch = self._flips_filtered[indices]
         n = len(indices)
 
-        # Build node features (vectorized across all shots in the batch)
-        coords, batch_labels = self._get_node_features(det_batch)
-
-        # Expand each detector event into every dt-wide window containing it.
-        if self.sliding:
-            node_features = [
-                coords[batch_labels == b_idx, :3].astype(np.int64)
-                for b_idx in range(n)
-            ]
-            node_features, chunk_labels = self._sliding_window(node_features)
-            batch_labels = np.repeat(
-                np.arange(n),
-                [len(features) for features in node_features],
-            )
-            coords = np.vstack(node_features)
-            is_z = np.array(
-                [self._is_z_by_xy[(int(x), int(y))] for x, y in coords[:, :2]],
-                dtype=bool,
-            )[:, np.newaxis]
-            coords = np.hstack((coords, is_z, ~is_z)).astype(np.float32)
-        else:
-            chunk_labels = (coords[:, 2] // self.dt).astype(np.int64)
-            coords[:, 2] = coords[:, 2] % self.dt
+        node_features = [self._node_features_cache[i] for i in indices]
+        chunk_features = [self._chunk_labels_cache[i] for i in indices]
+        lengths = [len(features) for features in node_features]
+        coords = np.vstack(node_features)
+        batch_labels = np.repeat(np.arange(n), lengths)
+        chunk_labels = np.concatenate(chunk_features)
 
         # Map [batch, chunk] -> label integer
-        label_map = np.column_stack([batch_labels, chunk_labels])
-        label_map, counts = np.unique(label_map, axis=0, return_counts=True)
-        labels = np.repeat(np.arange(counts.shape[0]), counts).astype(np.int64)
+        labels, label_map = labels_from_batch_chunks(batch_labels, chunk_labels)
 
         # Move to GPU before knn_graph so the graph build runs on device.
         node_features = torch.from_numpy(coords).to(self.device)
@@ -273,6 +279,8 @@ def split_ibm_job(sc: SurfaceCodeCircuit, job_path: str, ratios, seed: int,
         # Drop the template's cached filter so each child rebuilds its own.
         ds.__dict__.pop('_det_filtered', None)
         ds.__dict__.pop('_flips_filtered', None)
+        ds.__dict__.pop('_node_features_cache', None)
+        ds.__dict__.pop('_chunk_labels_cache', None)
         splits.append(ds)
         offset += n
     return splits
@@ -294,6 +302,8 @@ def concat_ibm_decoders(datasets):
     ds.logical_flips = np.concatenate([d.logical_flips for d in datasets], axis=0)
     ds.__dict__.pop('_det_filtered', None)
     ds.__dict__.pop('_flips_filtered', None)
+    ds.__dict__.pop('_node_features_cache', None)
+    ds.__dict__.pop('_chunk_labels_cache', None)
     return ds
 
 

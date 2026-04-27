@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from torch_geometric.nn.pool import knn_graph
 from args import Args
-from data import Dataset
+from data import get_sliding_window, labels_from_batch_chunks
 
 
 class DEMDataset:
@@ -33,13 +33,9 @@ class DEMDataset:
         # Match the coordinate convention used in data.py.
         self._detector_coords[:, :2] /= 2.0
         self._detector_is_z = np.asarray(detector_is_z, dtype=np.float32)
-        self._is_z_by_xy = {
-            (int(x), int(y)): is_z
-            for (x, y, _), is_z in zip(self._detector_coords, self._detector_is_z)
-        }
 
     def _sliding_window(self, node_features):
-        return Dataset.get_sliding_window(self, node_features, self.rounds)
+        return get_sliding_window(node_features, self.dt, self.rounds, time_col=2)
 
     def generate_batch(self):
         """
@@ -65,53 +61,29 @@ class DEMDataset:
         det_events = det_events[:self.batch_size]
         obs_flips = obs_flips[:self.batch_size]
 
-        # Build node features for each shot.
-        all_nodes = []
-        batch_labels = []
-
-        for b_idx in range(self.batch_size):
-            fired = np.where(det_events[b_idx])[0]
-            if len(fired) == 0:
-                continue
-
-            coords = self._detector_coords[fired]  # [n_fired, 3]
-            x, y, t = coords[:, 0], coords[:, 1], coords[:, 2]
-            is_z = self._detector_is_z[fired]
-
-            node_feat = np.column_stack([
-                x, y, t, is_z, 1.0 - is_z
-            ]).astype(np.float32)
-
-            all_nodes.append(node_feat)
-            batch_labels.extend([b_idx] * len(fired))
-
-        batch_labels = np.array(batch_labels)
-        node_features_np = np.vstack(all_nodes)
+        batch_labels, det_idx = np.where(det_events)
+        coords = self._detector_coords[det_idx]
+        is_z = self._detector_is_z[det_idx]
+        node_features_np = np.empty((len(det_idx), 5), dtype=np.float32)
+        node_features_np[:, :3] = coords
+        node_features_np[:, 3] = is_z
+        node_features_np[:, 4] = 1.0 - is_z
 
         if self.sliding:
-            node_features = [
-                node_features_np[batch_labels == b_idx, :3].astype(np.int64)
-                for b_idx in range(self.batch_size)
-            ]
+            split_pts = np.searchsorted(batch_labels, np.arange(1, self.batch_size))
+            node_features = np.split(node_features_np, split_pts)
             node_features, chunk_labels = self._sliding_window(node_features)
             batch_labels = np.repeat(
                 np.arange(self.batch_size),
                 [len(features) for features in node_features],
             )
-            node_features_np = np.vstack(node_features)
-            is_z = np.array(
-                [self._is_z_by_xy[(int(x), int(y))] for x, y in node_features_np[:, :2]],
-                dtype=bool,
-            )[:, np.newaxis]
-            node_features_np = np.hstack((node_features_np, is_z, ~is_z)).astype(np.float32)
+            node_features_np = np.vstack(node_features).astype(np.float32)
         else:
             chunk_labels = (node_features_np[:, 2] // self.dt).astype(np.int64)
             node_features_np[:, 2] = node_features_np[:, 2] % self.dt
 
         # Map [batch, chunk] -> label integer
-        label_map = np.column_stack([batch_labels, chunk_labels])
-        label_map, counts = np.unique(label_map, axis=0, return_counts=True)
-        labels = np.repeat(np.arange(counts.shape[0]), counts).astype(np.int64)
+        labels, label_map = labels_from_batch_chunks(batch_labels, chunk_labels)
 
         # Move to GPU before knn_graph so the graph build runs on device.
         node_features = torch.from_numpy(node_features_np).to(self.device)

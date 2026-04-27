@@ -84,7 +84,7 @@ class GRUDecoder(nn.Module):
             model_time = 0
 
             for _ in range(self.args.n_batches):
-                optim.zero_grad()
+                optim.zero_grad(set_to_none=True)
 
                 t0 = time.perf_counter()
                 x, edge_index, batch_labels, label_map, edge_attr, flips = dataset.generate_batch()
