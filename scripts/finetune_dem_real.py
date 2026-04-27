@@ -138,5 +138,5 @@ model.train_model(
 )
 
 # Final evaluation on held-out real test
-real_test_m = evaluate_dataset(model, real_test, n_batches=40)
+real_test_m = evaluate_dataset(model, real_test, all_shots=True)
 print_test_result(real_test_m, T)
