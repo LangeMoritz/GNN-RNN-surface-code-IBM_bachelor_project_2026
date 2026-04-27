@@ -36,11 +36,6 @@ class Tee:
         return any(getattr(stream, "isatty", lambda: False)() for stream in self.streams)
 
 
-if torch.cuda.is_available():
-    torch.set_float32_matmul_precision("high")
-    torch.backends.cudnn.benchmark = True
-
-
 D, T = 3, 10
 TRAIN_JOBS = [
     "jobs/dist3/job_d3_T10_shots100000_d7b87q15a5qc73dn58rg_.json",
