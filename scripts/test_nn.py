@@ -1,28 +1,39 @@
 import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
-from gru_decoder import GRUDecoder
-from data import Dataset, Args
-from scripts.mwpm import test_mwpm
+
 import torch
+from args import Args
+from gru_decoder import GRUDecoder
+from surface_code_miami import SurfaceCodeCircuit
+from ibm_decoder import IBMJobDecoder, evaluate_dataset
+from mwpm_decoder import MWPMDecoder
+from utils import print_test_result, lfr_per_round
+
+
+D, T = 3, 10
+TEST_JOB = "jobs/dist3/d3_test_jobs/d3_T10_shots10000_d7l2rh0e7usc73f5f6b0.json"
+MODEL_PATH = f"models/distance{D}_ibm_dem_real.pt"
+PIJ_THRESHOLD = 0.044  # d=3, 0 for d=5
+
 
 if __name__ == "__main__":
-    # Let's load and test the distance 5 model:
-    args = Args(
-        distance=5,
-        error_rates=[0.001],
-        t=[99],
-        dt=2,
-        sliding=True,
-        batch_size=128,
-        embedding_features=[5, 32, 64, 128, 256],
-        hidden_size=128,
-        n_layers=4,
-        seed=42 
-    )
+    args = Args(distance=D, dt=2)
+    sc = SurfaceCodeCircuit(distance=D, T=T)
 
-    decoder_d5 = GRUDecoder(args).to(args.device)
-    decoder_d5.load_state_dict(torch.load("./models/distance5.pt", weights_only=True, map_location=args.device))
-    
-    n_iter = 100
-    decoder_d5.test_model(Dataset(args), n_iter=n_iter)
-    test_mwpm(Dataset(args), n_iter=n_iter)
+    # --- GNN-RNN ---
+    model = GRUDecoder(args)
+    ckpt = torch.load(MODEL_PATH, weights_only=False, map_location=args.device)
+    model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
+    model.to(args.device)
+
+    dataset = IBMJobDecoder(
+        sc, job_path=TEST_JOB, dt=args.dt, k=args.k,
+        batch_size=args.batch_size, device=args.device,
+    )
+    metrics = evaluate_dataset(model, dataset, all_shots=True)
+    print_test_result(metrics, T, label=f"GNN-RNN (d={D}, T={T})")
+
+    # --- MWPM ---
+    print("\nMWPM:")
+    p_l, _ = MWPMDecoder(sc, job_path=TEST_JOB, pij_threshold=PIJ_THRESHOLD).decode()
+    print(f" LFR/round = {lfr_per_round(1 - p_l, T):.4f}")

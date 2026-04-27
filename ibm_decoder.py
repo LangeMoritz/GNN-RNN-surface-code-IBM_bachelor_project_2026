@@ -74,7 +74,7 @@ class IBMJobDecoder:
 
     def __init__(self, sc: SurfaceCodeCircuit, job_path: str,
                  simulator: bool = False, k: int = 20, dt: int = 2,
-                 norm: float = torch.inf, batch_size: int = 2048,
+                 norm: float = torch.inf, batch_size: int = 256,
                  device: torch.device = None):
         self.distance = sc.distance
         self.t = sc.T
@@ -89,7 +89,6 @@ class IBMJobDecoder:
         self.device = device or torch.device("cpu")
         
         # Stabilizer-to-data-qubit map for final syndrome reconstruction
-        # (now computed once inside SurfaceCodeCircuit).
         self._stabilizer_data = sc.stabilizer_data
 
         # Use Stim-aligned ancilla coordinates so IBM and DEM share the same frame.
@@ -138,7 +137,7 @@ class IBMJobDecoder:
         final_det = final_syndrome[:, np.newaxis, :] ^ syndromes[:, -1:, :]
 
         self.detections = np.concatenate([initial_det, middle_det, final_det], axis=1).astype(bool)
-        
+
         # ---- Logical observable (top row) ----
         logical_qubits = list(range(self.distance))
         self.logical_flips = np.zeros(actual_shots, dtype=np.int32)
@@ -181,25 +180,20 @@ class IBMJobDecoder:
         self._det_filtered = self.detections[has_event]
         self._flips_filtered = self.logical_flips[has_event]
 
-    def generate_batch(self):
+    def generate_batch(self, indices=None):
         """
-        Generates a batch of graphs.
-
-        Returns:
-            node_features: tensor of shape [n, 5] ([x, y, t, (stabilizer type)]).
-            edge_index: tensor of shape [n_edges, 2].
-            labels: tensor of shape [n].
-            label_map: tensor of shape [n_graphs].
-            edge_attr: tensor of shape [n_edges].
-            flips: tensor of shape [batch size].
+        Generates a batch of graphs. If indices is None, samples randomly from
+        event-filtered shots; otherwise builds the batch from those indices.
         """
         self._load_job_data()
         self._ensure_event_filter()
 
-        n = min(self.batch_size, len(self._det_filtered))
-        indices = np.random.choice(len(self._det_filtered), n, replace=False)
+        if indices is None:
+            n = min(self.batch_size, len(self._det_filtered))
+            indices = np.random.choice(len(self._det_filtered), n, replace=False)
         det_batch = self._det_filtered[indices]
         flips_batch = self._flips_filtered[indices]
+        n = len(indices)
 
         # Build node features (vectorized across all shots in the batch)
         coords, batch_labels = self._get_node_features(det_batch)
@@ -288,7 +282,7 @@ def prepare_real_datasets(sc: SurfaceCodeCircuit, train_jobs: list[str], *,
       train/val. Their train and val slices are concatenated onto the first
       job's.
 
-    So TRAIN_JOBS = [one_job] gives a pure 70/10/20§, while
+    So TRAIN_JOBS = [one_job] gives a pure 70/10/20, while
     TRAIN_JOBS = [job_a, job_b] gives the two-job 70/10/20 + 90/10 pattern.
     """
     train_ratio_head = 1.0 - test_ratio - val_ratio
@@ -327,68 +321,55 @@ def prepare_real_datasets(sc: SurfaceCodeCircuit, train_jobs: list[str], *,
     return real_train, real_val, real_test
 
 
-def evaluate_dataset(model, dataset, n_batches: int = 20) -> dict:
+def evaluate_dataset(model, dataset, n_batches: int = 20, all_shots: bool = False) -> dict:
     """
-    Per-class + overall accuracy of model over n_batches from dataset.
-    Returns a dict with keys: acc, acc_0, acc_1, n_0, n_1.
+    Per-class + overall accuracy.
+
+    If all_shots=True, deterministically iterate every shot exactly once
+    (event shots through the model, no-detection shots tallied as pred=0).
+    Otherwise sample n_batches random batches.
     """
     model.eval()
     n0, n1, c0, c1 = 0, 0, 0, 0
+
+    def _tally(flips, pred):
+        nonlocal n0, n1, c0, c1
+        is0 = flips == 0
+        is1 = flips == 1
+        n0 += is0.sum().item()
+        n1 += is1.sum().item()
+        c0 += ((pred == flips) & is0).sum().item()
+        c1 += ((pred == flips) & is1).sum().item()
+
     with torch.no_grad():
-        for _ in range(n_batches):
-            x, ei, lab, lm, ea, flips = dataset.generate_batch()
-            out = model.forward(x, ei, ea, lab, lm)
-            pred = torch.round(out)
-            is0 = flips == 0
-            is1 = flips == 1
-            n0 += is0.sum().item()
-            n1 += is1.sum().item()
-            c0 += ((pred == flips) & is0).sum().item()
-            c1 += ((pred == flips) & is1).sum().item()
+        if all_shots:
+            dataset._load_job_data()
+            dataset._ensure_event_filter()
+            n_event = len(dataset._det_filtered)
+            for start in range(0, n_event, dataset.batch_size):
+                idx = np.arange(start, min(start + dataset.batch_size, n_event))
+                x, ei, lab, lm, ea, flips = dataset.generate_batch(indices=idx)
+                _tally(flips, torch.round(model.forward(x, ei, ea, lab, lm)))
+
+            n_no_event = len(dataset.logical_flips) - len(dataset._flips_filtered)
+            n1_no_event = int(dataset.logical_flips.sum() - dataset._flips_filtered.sum())
+            n0_no_event = n_no_event - n1_no_event
+            n0 += n0_no_event
+            n1 += n1_no_event
+            c0 += n0_no_event
+        else:
+            for _ in range(n_batches):
+                x, ei, lab, lm, ea, flips = dataset.generate_batch()
+                _tally(flips, torch.round(model.forward(x, ei, ea, lab, lm)))
+
     total = n0 + n1
     return {
-        "acc": (c0 + c1) / total if total > 0 else 0.0,
-        "acc_0": c0 / n0 if n0 > 0 else 0.0,
-        "acc_1": c1 / n1 if n1 > 0 else 0.0,
+        "acc": (c0 + c1) / total,
+        "acc_0": c0 / n0,
+        "acc_1": c1 / n1,
         "n_0": n0,
         "n_1": n1,
     }
-
-
-def decode(distance: int, T: int, job_path: str, finetuned: bool = False):
-    from gru_decoder import GRUDecoder
-    from args import Args
-    args = Args(
-        distance=distance,
-        dt=2,
-        embedding_features=[5, 32, 64, 128, 256],
-        hidden_size=128,
-        n_layers=4, 
-    )
-
-    model = GRUDecoder(args)
-    model_path = f"./models/distance{distance}_ibm_real.pt" if finetuned else f"./models/distance{distance}.pt"
-    ckpt = torch.load(model_path, weights_only=False)
-    model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
-    model.eval()
-
-    sc = SurfaceCodeCircuit(distance=distance, T=T)
-    dataset = IBMJobDecoder(
-        sc,
-        job_path=job_path,
-        dt=args.dt,
-        k=args.k,
-    )
-    x, edge_index, labels, label_map, edge_attr, flips = dataset.generate_batch()
-
-    with torch.no_grad():
-        predictions = model.forward(x, edge_index, edge_attr, labels, label_map)
-
-    predicted_flips = torch.round(predictions).int()
-    accuracy = (predicted_flips.squeeze() == flips.squeeze()).float().mean()
-    print(f"GNN-RNN accuracy on hardware data: {accuracy:.4f}")
-    return accuracy
-
 
 if __name__ == "__main__":
 
@@ -398,7 +379,7 @@ if __name__ == "__main__":
     sc = SurfaceCodeCircuit(distance=D, T=T)
     dataset = IBMJobDecoder(sc, job_path=JOB, dt=2, k=20)
     dataset._load_job_data()
-    
+
     print(f"Raw logical flip rate: {dataset.logical_flips.mean():.3f}")
     n_correct_trivial = (dataset.logical_flips == 0).sum()
     print(f"Trivial decoder accuracy: {n_correct_trivial / len(dataset.logical_flips):.3f}")
@@ -411,12 +392,3 @@ if __name__ == "__main__":
     # Per-round detection rates: each value is the detection rate for one ancilla (averaged over all shots)
     for r in range(dataset.detections.shape[1]):
         print(f"Round {r}: {dataset.detections[:, r, :].mean(axis=0).round(2)}")
-
-    # GNN-RNN
-    # Finetuned = True to use trained model, currently only trained on dist 3.
-    decode(
-        distance=D,
-        T=T,
-        job_path=JOB,
-        finetuned=False,
-    )
