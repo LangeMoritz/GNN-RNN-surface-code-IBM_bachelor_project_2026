@@ -60,36 +60,6 @@ def get_sliding_window(
     chunk_labels = np.concatenate(chunk_labels)
     return node_features, chunk_labels
 
-
-def labels_from_batch_chunks(
-    batch_labels: np.ndarray,
-    chunk_labels: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Map ordered [batch, chunk] rows to contiguous graph labels.
-    """
-    label_pairs = np.column_stack([batch_labels, chunk_labels])
-    if len(label_pairs) > 1:
-        ordered = (
-            (label_pairs[1:, 0] > label_pairs[:-1, 0])
-            | (
-                (label_pairs[1:, 0] == label_pairs[:-1, 0])
-                & (label_pairs[1:, 1] >= label_pairs[:-1, 1])
-            )
-        )
-        if not np.all(ordered):
-            label_map, labels = np.unique(label_pairs, axis=0, return_inverse=True)
-            labels = labels.astype(np.int64)
-            return labels, label_map
-
-    starts = np.ones(len(label_pairs), dtype=bool)
-    starts[1:] = np.any(label_pairs[1:] != label_pairs[:-1], axis=1)
-    start_idx = np.flatnonzero(starts)
-    counts = np.diff(np.append(start_idx, len(label_pairs)))
-    labels = np.repeat(np.arange(len(counts)), counts).astype(np.int64)
-    return labels, label_pairs[start_idx]
-
-
 class Dataset:
     """
     Class that is used to generate graphs of errors that occur

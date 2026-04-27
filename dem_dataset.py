@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from torch_geometric.nn.pool import knn_graph
 from args import Args
-from data import get_sliding_window, labels_from_batch_chunks
+from data import get_sliding_window
 
 
 class DEMDataset:
@@ -61,13 +61,28 @@ class DEMDataset:
         det_events = det_events[:self.batch_size]
         obs_flips = obs_flips[:self.batch_size]
 
-        batch_labels, det_idx = np.where(det_events)
-        coords = self._detector_coords[det_idx]
-        is_z = self._detector_is_z[det_idx]
-        node_features_np = np.empty((len(det_idx), 5), dtype=np.float32)
-        node_features_np[:, :3] = coords
-        node_features_np[:, 3] = is_z
-        node_features_np[:, 4] = 1.0 - is_z
+        # Build node features for each shot.
+        all_nodes = []
+        batch_labels = []
+
+        for b_idx in range(self.batch_size):
+            fired = np.where(det_events[b_idx])[0]
+            if len(fired) == 0:
+                continue
+
+            coords = self._detector_coords[fired]  # [n_fired, 3]
+            x, y, t = coords[:, 0], coords[:, 1], coords[:, 2]
+            is_z = self._detector_is_z[fired]
+
+            node_feat = np.column_stack([
+                x, y, t, is_z, 1.0 - is_z
+            ]).astype(np.float32)
+
+            all_nodes.append(node_feat)
+            batch_labels.extend([b_idx] * len(fired))
+
+        batch_labels = np.array(batch_labels)
+        node_features_np = np.vstack(all_nodes)
 
         if self.sliding:
             split_pts = np.searchsorted(batch_labels, np.arange(1, self.batch_size))
@@ -83,7 +98,9 @@ class DEMDataset:
             node_features_np[:, 2] = node_features_np[:, 2] % self.dt
 
         # Map [batch, chunk] -> label integer
-        labels, label_map = labels_from_batch_chunks(batch_labels, chunk_labels)
+        label_map = np.column_stack([batch_labels, chunk_labels])
+        label_map, counts = np.unique(label_map, axis=0, return_counts=True)
+        labels = np.repeat(np.arange(counts.shape[0]), counts).astype(np.int64)
 
         # Move to GPU before knn_graph so the graph build runs on device.
         node_features = torch.from_numpy(node_features_np).to(self.device)
