@@ -101,7 +101,7 @@ dem = build_dem_from_detection_events(alignment.circuit, det_stim)
 
 dem_train = DEMDataset(
     args_dem, dem=dem, rounds=T, circuit=alignment.circuit,
-    detector_is_z=alignment.detector_is_z,
+    detector_is_z=alignment.detector_is_z, sliding_window=True,
 )
 
 # Model + Phase A
@@ -118,7 +118,7 @@ logger_a = TrainingLogger(
 model.train_model(
     dataset=dem_train, val_dataset=real_val,
     n_val_batches=30, patience=PATIENCE_A,
-    logger=logger_a,
+    logger=logger_a, sliding_window=True,
 )
 
 # Phase B: continue on real hardware shots
@@ -134,6 +134,7 @@ model.train_model(
     dataset=real_train, val_dataset=real_val,
     n_val_batches=30, patience=PATIENCE_B,
     save=SAVE_NAME, logger=logger_b,
+    sliding_window=True,
 )
 
 # Final evaluation on held-out real test
