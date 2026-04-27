@@ -48,10 +48,10 @@ TRAIN_JOBS = [
 ]
 
 PRETRAINED = f"models/distance{D}.pt"
-SAVE_NAME = f"distance{D}_ibm_dem_real"
+SAVE_NAME = f"distance{D}_ibm_dem_real_sliding"
 PATIENCE_A = 40
 PATIENCE_B = 60
-SAVE_CONSOLE_LOG = False
+SAVE_CONSOLE_LOG = True
 CONSOLE_LOG_PATH = f"jobs/logs/{SAVE_NAME}_console.log"
 
 if SAVE_CONSOLE_LOG:
@@ -116,7 +116,10 @@ model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
 model.to(args_dem.device)
 
 print("\n=== Phase A: DEM fine-tune ===")
-logger_a = TrainingLogger(statsfile="finetune_dem_real_phaseA")
+logger_a = TrainingLogger(
+    logfile=f"{SAVE_NAME}.log",
+    statsfile="finetune_dem_real_phaseA",
+)
 model.train_model(
     dataset=dem_train, val_dataset=real_val,
     n_val_batches=30, patience=PATIENCE_A,
@@ -128,7 +131,10 @@ model.train_model(
 model.args = args_real
 
 print("\n=== Phase B: real-data fine-tune ===")
-logger_b = TrainingLogger(statsfile="finetune_dem_real_phaseB")
+logger_b = TrainingLogger(
+    logfile=f"{SAVE_NAME}.log",
+    statsfile="finetune_dem_real_phaseB",
+)
 model.train_model(
     dataset=real_train, val_dataset=real_val,
     n_val_batches=30, patience=PATIENCE_B,
