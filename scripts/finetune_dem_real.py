@@ -25,7 +25,7 @@ TRAIN_JOBS = [
 ]
 
 PRETRAINED = f"models/distance{D}.pt"
-SAVE_NAME = f"distance{D}_ibm_dem_real_baseline2"
+SAVE_NAME = f"distance{D}_ibm_dem_real_baseline3"
 PATIENCE_A = 25
 PATIENCE_B = 35
 
@@ -44,9 +44,9 @@ args_real = Args(
     distance=D,
     dt=2,
     batch_size=64,
-    n_batches=1200,
+    n_batches=800,
     n_epochs=300,
-    lr=1e-4, # 2e-5 if overfitts, 1e-4 if underfits
+    lr=1e-5,
     min_lr=1e-6,
 )
 
@@ -88,7 +88,7 @@ logger_a = TrainingLogger(
 )
 model.train_model(
     dataset=dem_train, val_dataset=real_val,
-    n_val_batches=100, patience=PATIENCE_A,
+    n_val_batches=200, patience=PATIENCE_A,
     logger=logger_a
 )
 
@@ -103,7 +103,7 @@ logger_b = TrainingLogger(
 )
 model.train_model(
     dataset=real_train, val_dataset=real_val,
-    n_val_batches=100, patience=PATIENCE_B,
+    n_val_batches=200, patience=PATIENCE_B,
     save=SAVE_NAME, logger=logger_b
 )
 

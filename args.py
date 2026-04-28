@@ -6,9 +6,9 @@ class Args:
 
     # Stim 
     error_rates: list[float] = field(default_factory=lambda: [0.001, 0.002, 0.003, 0.004, 0.005])
-    t: list[int] = field(default_factory=lambda: [99])
+    t: list[int] = field(default_factory=lambda: [10])
     dt: int = 2
-    distance: int = 5
+    distance: int = 3
     sliding: bool = True
     k: int = 20
     seed: int | None = None

@@ -56,6 +56,7 @@ class TrainingLogger:
         self.logs = []
         self.statsfile = statsfile
         self.best_accuracy = 0 
+        self.best_val_accuracy = 0
     
     def on_epoch_begin(self, epoch):
         self.t0 = time.perf_counter()
@@ -66,9 +67,16 @@ class TrainingLogger:
         epoch_time = time.perf_counter() - self.t0
         if logs["accuracy"] > self.best_accuracy:
             self.best_accuracy = logs["accuracy"]
+        val_line = ""
+        val_acc = logs.get("val_acc")
+        if not np.isnan(val_acc):
+            if val_acc > self.best_val_accuracy:
+                self.best_val_accuracy = val_acc
+            val_line = f"\n\tval accuracy = {val_acc:.4f} (best={self.best_val_accuracy:.4f})"
         logging.info(
             f"EPOCH {self.epoch} finished in {epoch_time:.3f} seconds with lr = {logs['lr']:.2e}:\n"
-            f"\tloss = {logs['loss']:.5f}, accuracy = {logs['accuracy']:.4f} ({self.best_accuracy:.4f})\n"
+            f"\tloss = {logs['loss']:.5f}, accuracy = {logs['accuracy']:.4f} (best={self.best_accuracy:.4f})"
+            f"{val_line}\n"
             f"\tclass 0: mean = {logs['zero_mean']:.4f} std = {logs['zero_std']:.4f} "
             f"fraction = {logs['noflip']:.4f}\n"
             f"\tclass 1: mean = {logs['one_mean']:.4f} std = {logs['one_std']:.4f} "
