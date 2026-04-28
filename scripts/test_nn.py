@@ -11,8 +11,8 @@ from utils import print_test_result, lfr_per_round
 
 
 D, T = 3, 10
-TEST_JOB = "jobs/dist3/d3_test_jobs/d3_T10_shots10000_d7l2rh0e7usc73f5f6b0.json"
-MODEL_PATH = f"models/distance{D}_ibm_dem_real.pt"
+TEST_JOB = "jobs/dist3/job_d3_T10_shots100000_d7b87q15a5qc73dn58rg_.json"
+MODEL_PATH = f"models/distance{D}.pt"
 PIJ_THRESHOLD = 0.044  # d=3, 0 for d=5
 
 

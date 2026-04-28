@@ -288,44 +288,34 @@ def concat_ibm_decoders(datasets):
 
 def prepare_real_datasets(sc: SurfaceCodeCircuit, train_jobs: list[str], *,
                           dt: int, k: int, batch_size: int, device=None,
-                          test_ratio: float = 0.20, val_ratio: float = 0.10,
+                          test_ratio: float = 0.10, val_ratio: float = 0.10,
                           seed: int = 42, verbose: bool = True,
                           sliding: bool = True):
     """Build (real_train, real_val, real_test) from one or more IBM job files.
 
-    - The first job is split [1 - test_ratio - val_ratio, val_ratio,
-      test_ratio] -> train/val/test.
-    - Any additional jobs are split [1 - val_ratio, val_ratio] ->
-      train/val. Their train and val slices are concatenated onto the first
-      job's.
-
-    So TRAIN_JOBS = [one_job] gives 70/10/20, while
-    TRAIN_JOBS = [job_a, job_b] gives the two-job 70/10/20 + 90/10 pattern.
+    Each job is split into train/val/test with the same ratios, then the
+    matching splits are concatenated across jobs.
     """
-    train_ratio_head = 1.0 - test_ratio - val_ratio
+    train_ratio = 1.0 - test_ratio - val_ratio
+    train_parts = []
+    val_parts = []
+    test_parts = []
+    per_job_sizes = []
 
-    train_head, val_head, real_test = split_ibm_job(
-        sc, train_jobs[0],
-        ratios=[train_ratio_head, val_ratio, test_ratio], seed=seed,
-        dt=dt, k=k, batch_size=batch_size, device=device, sliding=sliding,
-    )
-    train_parts = [train_head]
-    val_parts = [val_head]
-    per_job_sizes = [(train_jobs[0], len(train_head.logical_flips),
-                      len(val_head.logical_flips), len(real_test.logical_flips))]
-
-    for i, job in enumerate(train_jobs[1:], start=1):
-        t_i, v_i = split_ibm_job(
-            sc, job, ratios=[1.0 - val_ratio, val_ratio], seed=seed + i,
+    for i, job in enumerate(train_jobs):
+        t_i, v_i, test_i = split_ibm_job(
+            sc, job, ratios=[train_ratio, val_ratio, test_ratio], seed=seed + i,
             dt=dt, k=k, batch_size=batch_size, device=device, sliding=sliding,
         )
         train_parts.append(t_i)
         val_parts.append(v_i)
+        test_parts.append(test_i)
         per_job_sizes.append((job, len(t_i.logical_flips),
-                              len(v_i.logical_flips), 0))
+                              len(v_i.logical_flips), len(test_i.logical_flips)))
 
     real_train = concat_ibm_decoders(train_parts)
     real_val = concat_ibm_decoders(val_parts)
+    real_test = concat_ibm_decoders(test_parts)
 
     if verbose:
         for job, nt, nv, ntst in per_job_sizes:
