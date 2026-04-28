@@ -101,6 +101,7 @@ class TrainingLogger:
             [logs["one_mean"] for logs in self.logs],
             [logs["one_std"] for logs in self.logs],
             [logs["noflip"] for logs in self.logs],
+            [logs["val_acc"] for logs in self.logs],
         ))
         if self.statsfile:
             os.makedirs("./jobs/stats", exist_ok=True)

@@ -4,7 +4,7 @@
 #SBATCH -t 0-04:00:00           # time limit days-hours:minutes:seconds
 #SBATCH --gpus-per-node=A40:1   
 #SBATCH --output=jobs/alvis/%x-%j.out
-#SBATCH --job-name=d3_dem_real_t20
+#SBATCH --job-name=d3_dem_real_best2
 
 cd "$SLURM_SUBMIT_DIR"
 
@@ -12,5 +12,5 @@ module purge
 module load Python/3.12.3-GCCcore-13.3.0
 source .venv/bin/activate
 
-echo "DEM -> real fine-tune (T=20, dt=2)"
+echo "DEM -> real fine-tune (T=10, dt=2)"
 python -u scripts/finetune_dem_real.py

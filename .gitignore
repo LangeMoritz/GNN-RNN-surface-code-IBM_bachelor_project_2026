@@ -3,10 +3,11 @@
 .DS_Store
 QEC.yml
 __pycache__/
-
+.matplotlib/
 *.sif
 /wandb
 /models/temp/
 /src/models/
 notes/
 .env
+/figures
