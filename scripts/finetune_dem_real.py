@@ -4,7 +4,6 @@ Two-phase fine-tuning:
   Phase B — continue training on real hardware shots with real val set.
 """
 import sys, os
-import atexit
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
 
 import numpy as np
@@ -25,7 +24,7 @@ TRAIN_JOBS = [
 ]
 
 PRETRAINED = f"models/distance{D}.pt"
-SAVE_NAME = f"distance{D}_ibm_dem_real_baseline3"
+SAVE_NAME = f"distance{D}_ibm_dem_real"
 PATIENCE_A = 25
 PATIENCE_B = 35
 
@@ -36,7 +35,7 @@ args_dem = Args(
     batch_size=256,
     n_batches=150,
     n_epochs=200,
-    lr=1e-4, # testa 5e-6
+    lr=1e-4,
     min_lr=1e-6,
 )
 # Phase B (real samples)
@@ -45,7 +44,7 @@ args_real = Args(
     dt=2,
     batch_size=64,
     n_batches=800,
-    n_epochs=300,
+    n_epochs=200,
     lr=1e-5,
     min_lr=1e-6,
 )
