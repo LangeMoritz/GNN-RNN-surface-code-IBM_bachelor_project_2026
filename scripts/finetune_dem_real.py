@@ -18,24 +18,6 @@ from build_dem_from_detection_events import build_dem_from_detection_events
 from stim_alignment import build_stim_alignment, ibm_detections_to_stim_order
 from utils import TrainingLogger, print_test_result
 
-
-class Tee:
-    def __init__(self, *streams):
-        self.streams = streams
-
-    def write(self, data):
-        for stream in self.streams:
-            stream.write(data)
-        self.flush()
-
-    def flush(self):
-        for stream in self.streams:
-            stream.flush()
-
-    def isatty(self):
-        return any(getattr(stream, "isatty", lambda: False)() for stream in self.streams)
-
-
 D, T = 3, 10
 TRAIN_JOBS = [
     "jobs/dist3/job_d3_T10_shots100000_d7b87q15a5qc73dn58rg_.json",
@@ -43,28 +25,17 @@ TRAIN_JOBS = [
 ]
 
 PRETRAINED = f"models/distance{D}.pt"
-SAVE_NAME = f"distance{D}_ibm_dem_real_baseline"
-PATIENCE_A = 20
-PATIENCE_B = 30
-SAVE_CONSOLE_LOG = True
-CONSOLE_LOG_PATH = f"jobs/logs/{SAVE_NAME}_console.log"
-
-if SAVE_CONSOLE_LOG:
-    os.makedirs(os.path.dirname(CONSOLE_LOG_PATH), exist_ok=True)
-    _console_log = open(CONSOLE_LOG_PATH, "a", buffering=1)
-    atexit.register(_console_log.close)
-    sys.stdout = Tee(sys.stdout, _console_log)
-    sys.stderr = Tee(sys.stderr, _console_log)
-    print(f"Saving console output to {CONSOLE_LOG_PATH}", flush=True)
-
+SAVE_NAME = f"distance{D}_ibm_dem_real_baseline2"
+PATIENCE_A = 25
+PATIENCE_B = 35
 
 # Phase A (DEM-sampled)
 args_dem = Args(
     distance=D,
     dt=2,
     batch_size=256,
-    n_batches=100,
-    n_epochs=150,
+    n_batches=150,
+    n_epochs=200,
     lr=1e-4, # testa 5e-6
     min_lr=1e-6,
 )
@@ -73,9 +44,9 @@ args_real = Args(
     distance=D,
     dt=2,
     batch_size=64,
-    n_batches=800,
+    n_batches=1200,
     n_epochs=300,
-    lr=2e-5, # 2e-5 if overfitts, 1e-4 if underfits
+    lr=1e-4, # 2e-5 if overfitts, 1e-4 if underfits
     min_lr=1e-6,
 )
 
