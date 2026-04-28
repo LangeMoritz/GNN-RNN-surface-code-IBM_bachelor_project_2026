@@ -17,14 +17,14 @@ from build_dem_from_detection_events import build_dem_from_detection_events
 from stim_alignment import build_stim_alignment, ibm_detections_to_stim_order
 from utils import TrainingLogger, print_test_result
 
-D, T = 3, 10
+D, T = 3, 20
 TRAIN_JOBS = [
-    "jobs/dist3/job_d3_T10_shots100000_d7b87q15a5qc73dn58rg_.json",
-    "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json",
+    "jobs/dist3/job_d3_T20_shots100000_d7l210a8ui0s73b5s25g.json",
+    "jobs/dist3/job_d3_T20_shots50000_d7fmgem2cugc739qov6g.json",
 ]
 
 PRETRAINED = f"models/distance{D}.pt"
-SAVE_NAME = f"distance{D}_ibm_dem_real"
+SAVE_NAME = f"distance{D}_ibm_dem_real_t20"
 PATIENCE_A = 25
 PATIENCE_B = 35
 
