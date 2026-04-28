@@ -1,0 +1,32 @@
+This job can be monitored from: https://job.c3se.chalmers.se/alvis/6519462
+DEM -> real fine-tune (T=10, dt=2)
+  jobs/dist3/job_d3_T10_shots100000_d7b87q15a5qc73dn58rg_.json  -> train=70000, val=10000, test=20000
+  jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json  -> train=90000, val=10000
+Real shots - train: 160000, val: 20000, test: 20000
+Calibrating DEM from 180000 shots (all train+val, test excluded)
+
+=== Phase A: DEM fine-tune ===
+Epoch 10: loss=0.2918, acc=0.8720, val_acc=0.8182 (c0=0.940, c1=0.496, n1/N=0.27), LFR/rd=1.99%
+Epoch 20: loss=0.2843, acc=0.8765, val_acc=0.8163 (c0=0.917, c1=0.561, n1/N=0.28), LFR/rd=2.01%
+Epoch 30: loss=0.2773, acc=0.8811, val_acc=0.8216 (c0=0.917, c1=0.567, n1/N=0.27), LFR/rd=1.95%
+Epoch 40: loss=0.2759, acc=0.8805, val_acc=0.8209 (c0=0.922, c1=0.558, n1/N=0.28), LFR/rd=1.95%
+Early stop at epoch 43: no improvement for 25 epochs (best=0.8263).
+
+=== Phase B: real-data fine-tune ===
+Epoch 10: loss=0.2892, acc=0.8532, val_acc=0.8550 (c0=0.927, c1=0.662, n1/N=0.27), LFR/rd=1.55%
+Epoch 20: loss=0.2860, acc=0.8571, val_acc=0.8538 (c0=0.931, c1=0.648, n1/N=0.27), LFR/rd=1.57%
+Epoch 30: loss=0.2832, acc=0.8567, val_acc=0.8543 (c0=0.926, c1=0.666, n1/N=0.28), LFR/rd=1.56%
+Epoch 40: loss=0.2842, acc=0.8545, val_acc=0.8586 (c0=0.933, c1=0.667, n1/N=0.28), LFR/rd=1.51%
+Epoch 50: loss=0.2793, acc=0.8588, val_acc=0.8547 (c0=0.929, c1=0.653, n1/N=0.27), LFR/rd=1.56%
+Epoch 60: loss=0.2773, acc=0.8617, val_acc=0.8564 (c0=0.930, c1=0.660, n1/N=0.27), LFR/rd=1.54%
+Epoch 70: loss=0.2783, acc=0.8611, val_acc=0.8529 (c0=0.934, c1=0.641, n1/N=0.28), LFR/rd=1.58%
+Epoch 80: loss=0.2792, acc=0.8580, val_acc=0.8535 (c0=0.931, c1=0.656, n1/N=0.28), LFR/rd=1.57%
+Epoch 90: loss=0.2829, acc=0.8583, val_acc=0.8541 (c0=0.931, c1=0.650, n1/N=0.27), LFR/rd=1.57%
+Epoch 100: loss=0.2763, acc=0.8621, val_acc=0.8527 (c0=0.933, c1=0.634, n1/N=0.27), LFR/rd=1.58%
+Early stop at epoch 101: no improvement for 35 epochs (best=0.8638).
+
+Real test:
+ acc = 0.8575  (c0=0.9306, c1=0.6592)
+ shots = 20000  (class-0: 14612, class-1: 5388)
+ P_L = 0.1425
+ LFR/round = 0.0153  (1 - acc^(1/T) with T=10)
