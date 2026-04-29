@@ -25,8 +25,8 @@ TRAIN_JOBS = [
 
 PRETRAINED = f"models/distance{D}.pt"
 SAVE_NAME = f"distance{D}_ibm_dem_real_v4_adamw"
-PATIENCE_A = 20
-PATIENCE_B = 25
+PATIENCE_A = 10
+PATIENCE_B = 10
 
 # Phase A (DEM-sampled)
 args_dem = Args(
