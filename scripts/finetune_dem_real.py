@@ -17,23 +17,23 @@ from build_dem_from_detection_events import build_dem_from_detection_events
 from stim_alignment import build_stim_alignment, ibm_detections_to_stim_order
 from utils import TrainingLogger, print_test_result
 
-D, T = 5, 10
+D, T = 3, 10
 TRAIN_JOBS = [
-    "jobs/dist5/job_d5_T10_shots100000_d7jman1s7cos73ek3djg.json",
-    "jobs/dist5/d5_T10_shots100000_d7oben62jamc73bpfv00.json"
+    "jobs/dist3/job_d3_T10_shots100000_d7b87q15a5qc73dn58rg_.json",
+    "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
 ]
 
 PRETRAINED = f"models/distance{D}.pt"
-SAVE_NAME = f"distance{D}_ibm_dem_real"
-PATIENCE_A = 25
-PATIENCE_B = 30
+SAVE_NAME = f"distance{D}_ibm_dem_real_v3"
+PATIENCE_A = 30
+PATIENCE_B = 40
 
 # Phase A (DEM-sampled)
 args_dem = Args(
     distance=D,
     dt=2,
     batch_size=256,
-    n_batches=150,
+    n_batches=800,
     n_epochs=200,
     lr=1e-4,
     min_lr=1e-6,
@@ -43,7 +43,7 @@ args_real = Args(
     distance=D,
     dt=2,
     batch_size=64,
-    n_batches=800,
+    n_batches=3000,
     n_epochs=200,
     lr=1.5e-5,
     min_lr=1e-6,

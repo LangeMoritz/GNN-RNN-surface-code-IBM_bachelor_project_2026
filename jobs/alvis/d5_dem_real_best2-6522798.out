@@ -1,0 +1,31 @@
+This job can be monitored from: https://job.c3se.chalmers.se/alvis/6522798
+DEM -> real fine-tune (T=10, dt=2)
+  jobs/dist5/job_d5_T10_shots100000_d7jman1s7cos73ek3djg.json  -> train=80000, val=10000, test=10000
+  jobs/dist5/d5_T10_shots100000_d7oben62jamc73bpfv00.json  -> train=80000, val=10000, test=10000
+Real shots - train: 160000, val: 20000, test: 20000
+Calibrating DEM from 180000 shots (all train+val, test excluded)
+
+=== Phase A: DEM fine-tune ===
+Epoch 10: loss=0.6846, acc=0.5302, val_acc=0.7109 (c0=0.791, c1=0.581, n1/N=0.38), LFR/rd=3.35%
+Epoch 20: loss=0.6846, acc=0.5291, val_acc=0.7040 (c0=0.830, c1=0.504, n1/N=0.39), LFR/rd=3.45%
+Epoch 30: loss=0.6841, acc=0.5259, val_acc=0.6909 (c0=0.781, c1=0.550, n1/N=0.39), LFR/rd=3.63%
+Epoch 40: loss=0.6845, acc=0.5300, val_acc=0.6992 (c0=0.783, c1=0.566, n1/N=0.39), LFR/rd=3.51%
+Early stop at epoch 41: no improvement for 25 epochs (best=0.7127).
+
+=== Phase B: real-data fine-tune ===
+Epoch 10: loss=0.4284, acc=0.7593, val_acc=0.7562 (c0=0.868, c1=0.578, n1/N=0.39), LFR/rd=2.76%
+Epoch 20: loss=0.4226, acc=0.7632, val_acc=0.7512 (c0=0.875, c1=0.560, n1/N=0.39), LFR/rd=2.82%
+Epoch 30: loss=0.4172, acc=0.7652, val_acc=0.7658 (c0=0.882, c1=0.585, n1/N=0.39), LFR/rd=2.63%
+Epoch 40: loss=0.4203, acc=0.7673, val_acc=0.7599 (c0=0.877, c1=0.573, n1/N=0.38), LFR/rd=2.71%
+Epoch 50: loss=0.4192, acc=0.7667, val_acc=0.7597 (c0=0.882, c1=0.562, n1/N=0.38), LFR/rd=2.71%
+Epoch 60: loss=0.4150, acc=0.7686, val_acc=0.7567 (c0=0.868, c1=0.582, n1/N=0.39), LFR/rd=2.75%
+Epoch 70: loss=0.4153, acc=0.7679, val_acc=0.7627 (c0=0.870, c1=0.590, n1/N=0.38), LFR/rd=2.67%
+Epoch 80: loss=0.4116, acc=0.7707, val_acc=0.7586 (c0=0.870, c1=0.583, n1/N=0.39), LFR/rd=2.73%
+Epoch 90: loss=0.4172, acc=0.7661, val_acc=0.7582 (c0=0.864, c1=0.586, n1/N=0.38), LFR/rd=2.73%
+Early stop at epoch 95: no improvement for 30 epochs (best=0.7691).
+
+Real test:
+ acc = 0.7605  (c0=0.8603, c1=0.5975)
+ shots = 20000  (class-0: 12409, class-1: 7591)
+ P_L = 0.2395
+ LFR/round = 0.0270  (1 - acc^(1/T) with T=10)
