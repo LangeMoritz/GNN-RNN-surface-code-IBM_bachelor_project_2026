@@ -21,8 +21,6 @@ class Args:
     n_epochs: int = 600
     lr: float = 1e-3
     min_lr: float = 1e-4
-    weight_decay: float = 0.0
-    ema_decay: float = 0.0
 
     # Model
     embedding_features: list = field(default_factory=lambda: [5, 32, 64, 128, 256])

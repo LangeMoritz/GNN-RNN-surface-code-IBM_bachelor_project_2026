@@ -11,7 +11,7 @@ import torch
 from args import Args
 from gru_decoder import GRUDecoder
 from surface_code_miami import SurfaceCodeCircuit
-from ibm_decoder import prepare_real_datasets, evaluate_dataset, tune_threshold
+from ibm_decoder import prepare_real_datasets, evaluate_dataset
 from dem_dataset import DEMDataset
 from build_dem_from_detection_events import build_dem_from_detection_events
 from stim_alignment import build_stim_alignment, ibm_detections_to_stim_order
@@ -24,32 +24,29 @@ TRAIN_JOBS = [
 ]
 
 PRETRAINED = f"models/distance{D}.pt"
-SAVE_NAME = f"distance{D}_ibm_dem_real_v5_lr_ema_threshold"
-PATIENCE_A = 15
-PATIENCE_B = 20
+SAVE_NAME = f"distance{D}_ibm_dem_real_v3_repro"
+PATIENCE_A = 30
+PATIENCE_B = 40
 
 # Phase A (DEM-sampled)
 args_dem = Args(
     distance=D,
     dt=2,
     batch_size=256,
-    n_batches=400,
+    n_batches=800,
     n_epochs=200,
     lr=1e-4,
     min_lr=1e-6,
-    weight_decay=1e-5,
 )
 # Phase B (real samples)
 args_real = Args(
     distance=D,
     dt=2,
     batch_size=64,
-    n_batches=1500,
+    n_batches=2500,
     n_epochs=200,
-    lr=3e-6,
-    min_lr=3e-7,
-    weight_decay=7e-5,
-    ema_decay=0.9992,
+    lr=1.5e-5,
+    min_lr=1e-6,
 )
 
 # Build train/val/test from TRAIN_JOBS
@@ -89,7 +86,7 @@ logger_a = TrainingLogger(
 )
 model.train_model(
     dataset=dem_train, val_dataset=real_val,
-    n_val_batches=50, patience=PATIENCE_A,
+    n_val_batches=200, patience=PATIENCE_A,
     logger=logger_a
 )
 
@@ -104,17 +101,10 @@ logger_b = TrainingLogger(
 )
 model.train_model(
     dataset=real_train, val_dataset=real_val,
-    n_val_batches=50, patience=PATIENCE_B,
+    n_val_batches=200, patience=PATIENCE_B,
     save=SAVE_NAME, logger=logger_b
 )
 
 # Final evaluation on held-out real test
-default_test_m = evaluate_dataset(model, real_test, all_shots=True)
-print_test_result(default_test_m, T, label="Real test at threshold 0.50")
-
-threshold, val_threshold_m = tune_threshold(model, real_val, all_shots=True)
-print(f"\nBest validation threshold: {threshold:.2f}")
-print_test_result(val_threshold_m, T, label="Validation at tuned threshold")
-
-real_test_m = evaluate_dataset(model, real_test, all_shots=True, threshold=threshold)
-print_test_result(real_test_m, T, label="Real test at tuned threshold")
+real_test_m = evaluate_dataset(model, real_test, all_shots=True)
+print_test_result(real_test_m, T)

@@ -42,32 +42,6 @@ class GRUDecoder(nn.Module):
         _, h = self.rnn(x)
         return self.decoder(h[-1]) 
 
-    def _init_ema(self) -> dict[str, torch.Tensor] | None:
-        decay = getattr(self.args, "ema_decay", 0.0)
-        if decay <= 0.0:
-            return None
-        return {
-            name: param.detach().clone()
-            for name, param in self.named_parameters()
-            if param.requires_grad
-        }
-
-    def _update_ema(self, ema_state: dict[str, torch.Tensor]) -> None:
-        decay = self.args.ema_decay
-        with torch.no_grad():
-            for name, param in self.named_parameters():
-                if name in ema_state:
-                    ema_state[name].mul_(decay).add_(param.detach(), alpha=1.0 - decay)
-
-    def _swap_parameters(self, new_state: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
-        old_state = {}
-        with torch.no_grad():
-            for name, param in self.named_parameters():
-                if name in new_state:
-                    old_state[name] = param.detach().clone()
-                    param.copy_(new_state[name])
-        return old_state
-
     def train_model(
             self,
             logger: TrainingLogger | None = None,
@@ -91,17 +65,12 @@ class GRUDecoder(nn.Module):
         self.train()
         if dataset is None:
             dataset = Dataset(self.args)
-        optim = torch.optim.AdamW(
-            self.parameters(),
-            lr=self.args.lr,
-            weight_decay=self.args.weight_decay,
-        )
+        optim = torch.optim.Adam(self.parameters(), lr=self.args.lr)
         schedule = lambda epoch: max(0.95 ** epoch, self.args.min_lr / self.args.lr)
         scheduler = LambdaLR(optim, lr_lambda=schedule)
         loss_fn = nn.BCELoss()
         best_metric = 0.0
         epochs_since_improve = 0
-        ema_state = self._init_ema()
 
         for i in range(1, self.args.n_epochs + 1):
             if local_log:
@@ -125,8 +94,6 @@ class GRUDecoder(nn.Module):
                 loss = loss_fn(out, flips.type(torch.float32))
                 loss.backward()
                 optim.step()
-                if ema_state is not None:
-                    self._update_ema(ema_state)
 
                 t2 = time.perf_counter()
 
@@ -150,12 +117,10 @@ class GRUDecoder(nn.Module):
             # Optional validation pass
             val_acc = None
             val_metrics = None
-            restore_state = None
             if val_dataset is not None:
-                if ema_state is not None:
-                    restore_state = self._swap_parameters(ema_state)
                 val_metrics = self._evaluate(val_dataset, n_val_batches)
                 val_acc = val_metrics["acc"]
+                self.train()
 
             metrics = {
                 "loss":  epoch_loss,
@@ -195,10 +160,6 @@ class GRUDecoder(nn.Module):
                 epochs_since_improve = 0
             else:
                 epochs_since_improve += 1
-
-            if restore_state is not None:
-                self._swap_parameters(restore_state)
-            self.train()
 
             if patience is not None and epochs_since_improve >= patience:
                 print(f"Early stop at epoch {i}: no improvement for {patience} epochs (best={best_metric:.4f}).", flush=True)
