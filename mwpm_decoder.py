@@ -484,7 +484,7 @@ class MWPMDecoder:
         else:
             correct = 0
 
-        trivial_count = np.sum(~nontrivial)
+        trivial_count = np.sum(logical_flips[~nontrivial] == 0)
         total = detections.shape[0]
 
         logical_accuracy = (correct + trivial_count) / total
@@ -525,6 +525,69 @@ class MWPMDecoder:
             f"P_L={p_l:.6f} ± {accuracy_err:.6f}, "
         )
         return p_l, accuracy_err
+
+    def evaluate_arrays(
+        self,
+        calibration_detections: np.ndarray,
+        test_detections: np.ndarray,
+        test_logical_flips: np.ndarray,
+    ) -> dict:
+        """
+        Fit MWPM edge weights on calibration detections and evaluate on test shots.
+        """
+        calib_z = calibration_detections[:, :, self.z_indices].reshape(
+            len(calibration_detections), -1
+        )
+        test_z = test_detections[:, :, self.z_indices].reshape(
+            len(test_detections), -1
+        )
+        matcher = self.get_edges(calib_z, self.distance)
+
+        pred = np.zeros(len(test_logical_flips), dtype=np.int32)
+        nontrivial = np.any(test_z, axis=1)
+        if np.any(nontrivial):
+            pred[nontrivial] = matcher.decode_batch(test_z[nontrivial])[:, 0]
+
+        is0 = test_logical_flips == 0
+        is1 = test_logical_flips == 1
+        c0 = int(np.sum((pred == test_logical_flips) & is0))
+        c1 = int(np.sum((pred == test_logical_flips) & is1))
+        n0 = int(np.sum(is0))
+        n1 = int(np.sum(is1))
+        return {
+            "acc": (c0 + c1) / (n0 + n1),
+            "acc_0": c0 / n0 if n0 else 0.0,
+            "acc_1": c1 / n1 if n1 else 0.0,
+            "n_0": n0,
+            "n_1": n1,
+        }
+
+
+def evaluate_mwpm_split(
+    sc: SurfaceCodeCircuit,
+    calibration_datasets,
+    test_dataset,
+    pij_threshold: float | None = None,
+) -> dict:
+    """
+    Calibrate MWPM on train/val detections and evaluate on the held-out test split.
+    """
+    if not isinstance(calibration_datasets, (list, tuple)):
+        calibration_datasets = [calibration_datasets]
+    for dataset in [*calibration_datasets, test_dataset]:
+        dataset._load_job_data()
+
+    calibration_detections = np.concatenate(
+        [dataset.detections for dataset in calibration_datasets], axis=0
+    )
+    if pij_threshold is None:
+        pij_threshold = 0.044 if sc.distance == 3 else 0.0
+    decoder = MWPMDecoder(sc, job_path="", pij_threshold=pij_threshold)
+    return decoder.evaluate_arrays(
+        calibration_detections,
+        test_dataset.detections,
+        test_dataset.logical_flips,
+    )
 
 
 if __name__ == "__main__":

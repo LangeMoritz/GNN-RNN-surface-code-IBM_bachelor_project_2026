@@ -12,19 +12,21 @@ from args import Args
 from gru_decoder import GRUDecoder
 from surface_code_miami import SurfaceCodeCircuit
 from ibm_decoder import prepare_real_datasets, evaluate_dataset
+from mwpm_decoder import evaluate_mwpm_split
 from dem_dataset import DEMDataset
 from build_dem_from_detection_events import build_dem_from_detection_events
 from stim_alignment import build_stim_alignment, ibm_detections_to_stim_order
 from utils import TrainingLogger, print_test_result
 
-D, T = 3, 10
+D, T = 3, 20
 TRAIN_JOBS = [
-    "jobs/dist3/job_d3_T10_shots100000_d7b87q15a5qc73dn58rg_.json",
-    "jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json"
+    "jobs/dist3/job_d3_T20_shots100000_d7l210a8ui0s73b5s25g.json",
+    "jobs/dist3/d3_T20_shots50000_d7p0uhu0b9ts73cj0e80.json",
+    "jobs/dist3/job_d3_T20_shots50000_d7fmgem2cugc739qov6g.json"
 ]
 
 PRETRAINED = f"models/distance{D}.pt"
-SAVE_NAME = f"distance{D}_ibm_dem_real_v3_repro"
+SAVE_NAME = f"distance{D}_ibm_dem_real_t20_v1"
 PATIENCE_A = 30
 PATIENCE_B = 40
 
@@ -108,3 +110,6 @@ model.train_model(
 # Final evaluation on held-out real test
 real_test_m = evaluate_dataset(model, real_test, all_shots=True)
 print_test_result(real_test_m, T)
+
+mwpm_test_m = evaluate_mwpm_split(sc, [real_train, real_val], real_test)
+print_test_result(mwpm_test_m, T, label="MWPM real test")

@@ -10,8 +10,8 @@ from mwpm_decoder import MWPMDecoder
 from utils import print_test_result, lfr_per_round
 
 
-D, T = 3, 10
-TEST_JOB = "jobs/dist3/job_d3_T10_shots100000_d7b87q15a5qc73dn58rg_.json"
+D, T = 3, 20
+TEST_JOB = "jobs/d3_T20_shots500_d7p0kjj9ak2c739r4nt0.json"
 MODEL_PATH = f"models/distance{D}.pt"
 PIJ_THRESHOLD = 0.044  # d=3, 0 for d=5
 
