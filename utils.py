@@ -119,8 +119,9 @@ def standard_deviation(p, n):
 
 
 def lfr_per_round(acc: float, T: int) -> float:
-    """Logical failure rate per round: 1 - acc^(1/T)."""
-    return 1.0 - acc ** (1.0 / T)
+    """Per-round logical error from p_L = 0.5 * (1 - (1 - 2e)^T)."""
+    p_l = 1.0 - acc
+    return 0.5 * (1.0 - (1.0 - 2.0 * p_l) ** (1.0 / T))
 
 
 def print_test_result(metrics: dict, T: int, label: str = "Real test") -> None:
@@ -131,4 +132,4 @@ def print_test_result(metrics: dict, T: int, label: str = "Real test") -> None:
     print(f" acc = {acc:.4f}  (c0={metrics['acc_0']:.4f}, c1={metrics['acc_1']:.4f})")
     print(f" shots = {n}  (class-0: {metrics['n_0']}, class-1: {metrics['n_1']})")
     print(f" P_L = {1 - acc:.4f}")
-    print(f" LFR/round = {lfr_per_round(acc, T):.4f}  (1 - acc^(1/T) with T={T})")
+    print(f" LFR/round = {lfr_per_round(acc, T):.4f}  (0.5 * (1 - (1 - 2P_L)^(1/T)) with T={T})")
