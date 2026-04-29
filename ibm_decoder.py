@@ -328,7 +328,8 @@ def prepare_real_datasets(sc: SurfaceCodeCircuit, train_jobs: list[str], *,
     return real_train, real_val, real_test
 
 
-def evaluate_dataset(model, dataset, n_batches: int = 20, all_shots: bool = False) -> dict:
+def evaluate_dataset(model, dataset, n_batches: int = 20,
+                     all_shots: bool = False, threshold: float = 0.5) -> dict:
     """
     Per-class + overall accuracy.
 
@@ -356,7 +357,8 @@ def evaluate_dataset(model, dataset, n_batches: int = 20, all_shots: bool = Fals
             for start in range(0, n_event, dataset.batch_size):
                 idx = np.arange(start, min(start + dataset.batch_size, n_event))
                 x, ei, lab, lm, ea, flips = dataset.generate_batch(indices=idx)
-                _tally(flips, torch.round(model.forward(x, ei, ea, lab, lm)))
+                out = model.forward(x, ei, ea, lab, lm)
+                _tally(flips, (out >= threshold).to(flips.dtype))
 
             n_no_event = len(dataset.logical_flips) - len(dataset._flips_filtered)
             n1_no_event = int(dataset.logical_flips.sum() - dataset._flips_filtered.sum())
@@ -367,7 +369,8 @@ def evaluate_dataset(model, dataset, n_batches: int = 20, all_shots: bool = Fals
         else:
             for _ in range(n_batches):
                 x, ei, lab, lm, ea, flips = dataset.generate_batch()
-                _tally(flips, torch.round(model.forward(x, ei, ea, lab, lm)))
+                out = model.forward(x, ei, ea, lab, lm)
+                _tally(flips, (out >= threshold).to(flips.dtype))
 
     total = n0 + n1
     return {
@@ -377,6 +380,67 @@ def evaluate_dataset(model, dataset, n_batches: int = 20, all_shots: bool = Fals
         "n_0": n0,
         "n_1": n1,
     }
+
+
+def tune_threshold(model, dataset, thresholds=None, all_shots: bool = True,
+                   n_batches: int = 20) -> tuple[float, dict]:
+    """
+    Choose the threshold with best accuracy on a validation dataset.
+    If all_shots=True, no-detection shots are included with model score 0.
+    """
+    if thresholds is None:
+        thresholds = np.linspace(0.05, 0.95, 91)
+
+    model.eval()
+    probs, labels = [], []
+    with torch.no_grad():
+        if all_shots:
+            dataset._load_job_data()
+            dataset._ensure_event_filter()
+            n_event = len(dataset._det_filtered)
+            for start in range(0, n_event, dataset.batch_size):
+                idx = np.arange(start, min(start + dataset.batch_size, n_event))
+                x, ei, lab, lm, ea, flips = dataset.generate_batch(indices=idx)
+                probs.append(model.forward(x, ei, ea, lab, lm).detach().cpu())
+                labels.append(flips.detach().cpu())
+
+            has_event = np.any(dataset.detections.reshape(len(dataset.detections), -1), axis=1)
+            no_event_flips = dataset.logical_flips[~has_event, np.newaxis]
+            if len(no_event_flips) > 0:
+                probs.append(torch.zeros((len(no_event_flips), 1)))
+                labels.append(torch.from_numpy(no_event_flips))
+        else:
+            for _ in range(n_batches):
+                x, ei, lab, lm, ea, flips = dataset.generate_batch()
+                probs.append(model.forward(x, ei, ea, lab, lm).detach().cpu())
+                labels.append(flips.detach().cpu())
+
+    probs = torch.vstack(probs)
+    labels = torch.vstack(labels)
+    best_threshold = 0.5
+    best_metrics = None
+
+    for threshold in thresholds:
+        pred = (probs >= float(threshold)).to(labels.dtype)
+        is0 = labels == 0
+        is1 = labels == 1
+        n0 = is0.sum().item()
+        n1 = is1.sum().item()
+        c0 = ((pred == labels) & is0).sum().item()
+        c1 = ((pred == labels) & is1).sum().item()
+        total = n0 + n1
+        metrics = {
+            "acc": (c0 + c1) / total,
+            "acc_0": c0 / n0 if n0 else 0.0,
+            "acc_1": c1 / n1 if n1 else 0.0,
+            "n_0": n0,
+            "n_1": n1,
+        }
+        if best_metrics is None or metrics["acc"] > best_metrics["acc"]:
+            best_threshold = float(threshold)
+            best_metrics = metrics
+
+    return best_threshold, best_metrics
 
 if __name__ == "__main__":
 

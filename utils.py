@@ -89,7 +89,8 @@ class TrainingLogger:
     def on_training_begin(self, args):
         logging.info(
             f"Training with t = {args.t}, dt = {args.dt}, distance = {args.distance}, "
-            f"lr = {args.lr:.2e}, weight_decay = {args.weight_decay:.2e}"
+            f"lr = {args.lr:.2e}, weight_decay = {args.weight_decay:.2e}, "
+            f"ema_decay = {args.ema_decay:.4f}"
         )
     
     def on_training_end(self):

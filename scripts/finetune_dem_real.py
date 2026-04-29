@@ -11,7 +11,7 @@ import torch
 from args import Args
 from gru_decoder import GRUDecoder
 from surface_code_miami import SurfaceCodeCircuit
-from ibm_decoder import prepare_real_datasets, evaluate_dataset
+from ibm_decoder import prepare_real_datasets, evaluate_dataset, tune_threshold
 from dem_dataset import DEMDataset
 from build_dem_from_detection_events import build_dem_from_detection_events
 from stim_alignment import build_stim_alignment, ibm_detections_to_stim_order
@@ -24,7 +24,7 @@ TRAIN_JOBS = [
 ]
 
 PRETRAINED = f"models/distance{D}.pt"
-SAVE_NAME = f"distance{D}_ibm_dem_real_v4_adamw"
+SAVE_NAME = f"distance{D}_ibm_dem_real_v5_lr_ema_threshold"
 PATIENCE_A = 10
 PATIENCE_B = 10
 
@@ -46,9 +46,10 @@ args_real = Args(
     batch_size=64,
     n_batches=800,
     n_epochs=200,
-    lr=1.5e-5,
-    min_lr=1e-6,
+    lr=5e-6,
+    min_lr=5e-7,
     weight_decay=7e-5,
+    ema_decay=0.9992,
 )
 
 # Build train/val/test from TRAIN_JOBS
@@ -108,5 +109,12 @@ model.train_model(
 )
 
 # Final evaluation on held-out real test
-real_test_m = evaluate_dataset(model, real_test, all_shots=True)
-print_test_result(real_test_m, T)
+default_test_m = evaluate_dataset(model, real_test, all_shots=True)
+print_test_result(default_test_m, T, label="Real test at threshold 0.50")
+
+threshold, val_threshold_m = tune_threshold(model, real_val, all_shots=True)
+print(f"\nBest validation threshold: {threshold:.2f}")
+print_test_result(val_threshold_m, T, label="Validation at tuned threshold")
+
+real_test_m = evaluate_dataset(model, real_test, all_shots=True, threshold=threshold)
+print_test_result(real_test_m, T, label="Real test at tuned threshold")
