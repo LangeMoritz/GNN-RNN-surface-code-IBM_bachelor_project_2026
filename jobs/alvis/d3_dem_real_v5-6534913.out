@@ -1,0 +1,37 @@
+This job can be monitored from: https://job.c3se.chalmers.se/alvis/6534913
+DEM -> real fine-tune (T=10)
+  jobs/dist3/job_d3_T10_shots100000_d7b87q15a5qc73dn58rg_.json  -> train=80000, val=10000, test=10000
+  jobs/dist3/job_d777qp46ji0c738cgnbg_d3_T10_shots100000.json  -> train=80000, val=10000, test=10000
+Real shots - train: 160000, val: 20000, test: 20000
+Calibrating DEM from 180000 shots (all train+val, test excluded)
+
+=== Phase A: DEM fine-tune ===
+Epoch 10: loss=0.2754, acc=0.8824, val_acc=0.8128 (c0=0.920, c1=0.527, n1/N=0.27), LFR/rd=2.29%
+Early stop at epoch 16: no improvement for 15 epochs (best=0.8366).
+
+=== Phase B: real-data fine-tune ===
+Epoch 10: loss=0.2980, acc=0.8473, val_acc=0.8403 (c0=0.922, c1=0.629, n1/N=0.28), LFR/rd=1.89%
+Epoch 20: loss=0.2948, acc=0.8499, val_acc=0.8409 (c0=0.926, c1=0.625, n1/N=0.28), LFR/rd=1.88%
+Epoch 30: loss=0.2879, acc=0.8541, val_acc=0.8503 (c0=0.925, c1=0.638, n1/N=0.26), LFR/rd=1.75%
+Epoch 40: loss=0.2927, acc=0.8520, val_acc=0.8541 (c0=0.928, c1=0.648, n1/N=0.26), LFR/rd=1.70%
+Early stop at epoch 47: no improvement for 20 epochs (best=0.8641).
+
+Real test at threshold 0.50:
+ acc = 0.8558  (c0=0.9313, c1=0.6473)
+ shots = 20000  (class-0: 14681, class-1: 5319)
+ P_L = 0.1442
+ LFR/round = 0.0167  (0.5 * (1 - (1 - 2P_L)^(1/T)) with T=10)
+
+Best validation threshold: 0.53
+
+Validation at tuned threshold:
+ acc = 0.8563  (c0=0.9516, c1=0.5857)
+ shots = 20000  (class-0: 14794, class-1: 5206)
+ P_L = 0.1437
+ LFR/round = 0.0167  (0.5 * (1 - (1 - 2P_L)^(1/T)) with T=10)
+
+Real test at tuned threshold:
+ acc = 0.8571  (c0=0.9531, c1=0.5922)
+ shots = 20000  (class-0: 14681, class-1: 5319)
+ P_L = 0.1429
+ LFR/round = 0.0165  (0.5 * (1 - (1 - 2P_L)^(1/T)) with T=10)

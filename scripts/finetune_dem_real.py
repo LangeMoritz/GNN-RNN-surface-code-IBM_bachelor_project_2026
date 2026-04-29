@@ -25,8 +25,8 @@ TRAIN_JOBS = [
 
 PRETRAINED = f"models/distance{D}.pt"
 SAVE_NAME = f"distance{D}_ibm_dem_real_v5_lr_ema_threshold"
-PATIENCE_A = 10
-PATIENCE_B = 10
+PATIENCE_A = 15
+PATIENCE_B = 20
 
 # Phase A (DEM-sampled)
 args_dem = Args(
@@ -44,10 +44,10 @@ args_real = Args(
     distance=D,
     dt=2,
     batch_size=64,
-    n_batches=800,
+    n_batches=1500,
     n_epochs=200,
-    lr=5e-6,
-    min_lr=5e-7,
+    lr=3e-6,
+    min_lr=3e-7,
     weight_decay=7e-5,
     ema_decay=0.9992,
 )
