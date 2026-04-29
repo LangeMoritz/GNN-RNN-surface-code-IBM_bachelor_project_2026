@@ -87,7 +87,10 @@ class TrainingLogger:
         self.logs.append(logs)
 
     def on_training_begin(self, args):
-        logging.info(f"Training with t = {args.t}, dt = {args.dt}, distance = {args.distance}")
+        logging.info(
+            f"Training with t = {args.t}, dt = {args.dt}, distance = {args.distance}, "
+            f"lr = {args.lr:.2e}, weight_decay = {args.weight_decay:.2e}"
+        )
     
     def on_training_end(self):
         stats = np.vstack((

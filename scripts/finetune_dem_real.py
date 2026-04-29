@@ -24,29 +24,31 @@ TRAIN_JOBS = [
 ]
 
 PRETRAINED = f"models/distance{D}.pt"
-SAVE_NAME = f"distance{D}_ibm_dem_real_v3"
-PATIENCE_A = 30
-PATIENCE_B = 40
+SAVE_NAME = f"distance{D}_ibm_dem_real_v4_adamw"
+PATIENCE_A = 20
+PATIENCE_B = 25
 
 # Phase A (DEM-sampled)
 args_dem = Args(
     distance=D,
     dt=2,
     batch_size=256,
-    n_batches=800,
+    n_batches=400,
     n_epochs=200,
     lr=1e-4,
     min_lr=1e-6,
+    weight_decay=1e-5,
 )
 # Phase B (real samples)
 args_real = Args(
     distance=D,
     dt=2,
     batch_size=64,
-    n_batches=3000,
+    n_batches=800,
     n_epochs=200,
     lr=1.5e-5,
     min_lr=1e-6,
+    weight_decay=7e-5,
 )
 
 # Build train/val/test from TRAIN_JOBS
@@ -86,7 +88,7 @@ logger_a = TrainingLogger(
 )
 model.train_model(
     dataset=dem_train, val_dataset=real_val,
-    n_val_batches=200, patience=PATIENCE_A,
+    n_val_batches=50, patience=PATIENCE_A,
     logger=logger_a
 )
 
@@ -101,7 +103,7 @@ logger_b = TrainingLogger(
 )
 model.train_model(
     dataset=real_train, val_dataset=real_val,
-    n_val_batches=200, patience=PATIENCE_B,
+    n_val_batches=50, patience=PATIENCE_B,
     save=SAVE_NAME, logger=logger_b
 )
 
