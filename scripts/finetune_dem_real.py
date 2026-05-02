@@ -18,15 +18,15 @@ from build_dem_from_detection_events import build_dem_from_detection_events
 from stim_alignment import build_stim_alignment, ibm_detections_to_stim_order
 from utils import TrainingLogger, print_test_result
 
-D, T = 3, 20
+D, T = 5, 10
 TRAIN_JOBS = [
-    "jobs/dist3/job_d3_T20_shots100000_d7l210a8ui0s73b5s25g.json",
-    "jobs/dist3/d3_T20_shots50000_d7p0uhu0b9ts73cj0e80.json",
-    "jobs/dist3/job_d3_T20_shots50000_d7fmgem2cugc739qov6g.json"
+    "jobs/dist5/job_d5_T10_shots100000_d7jman1s7cos73ek3djg.json",
+    "jobs/dist5/d5_T10_shots100000_d7oben62jamc73bpfv00.json",
 ]
 
 PRETRAINED = f"models/distance{D}.pt"
-SAVE_NAME = f"distance{D}_ibm_dem_real_t20_v1"
+SAVE_NAME = f"distance{D}_ibm_dem_real_t10"
+STATSFILE_NAME=F"d{D}_dem_real_t10"
 PATIENCE_A = 30
 PATIENCE_B = 40
 
@@ -84,11 +84,11 @@ model.to(args_dem.device)
 print("\n=== Phase A: DEM fine-tune ===")
 logger_a = TrainingLogger(
     logfile=f"{SAVE_NAME}.log",
-    statsfile="finetune_dem_real_phaseA",
+    statsfile=f"{STATSFILE_NAME}_phaseA",
 )
 model.train_model(
     dataset=dem_train, val_dataset=real_val,
-    n_val_batches=200, patience=PATIENCE_A,
+    n_val_batches=300, patience=PATIENCE_A,
     logger=logger_a
 )
 
@@ -99,11 +99,11 @@ model.args = args_real
 print("\n=== Phase B: real-data fine-tune ===")
 logger_b = TrainingLogger(
     logfile=f"{SAVE_NAME}.log",
-    statsfile="finetune_dem_real_phaseB",
+    statsfile=f"{STATSFILE_NAME}_phaseB",
 )
 model.train_model(
     dataset=real_train, val_dataset=real_val,
-    n_val_batches=200, patience=PATIENCE_B,
+    n_val_batches=300, patience=PATIENCE_B,
     save=SAVE_NAME, logger=logger_b
 )
 

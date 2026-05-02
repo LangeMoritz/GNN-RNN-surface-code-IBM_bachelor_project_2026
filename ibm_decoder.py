@@ -380,8 +380,8 @@ def evaluate_dataset(model, dataset, n_batches: int = 20, all_shots: bool = Fals
 
 if __name__ == "__main__":
 
-    D, T = 3, 10
-    JOB = "jobs/dist3/job_d3_T10_shots100000_d7b87q15a5qc73dn58rg_.json"
+    D, T = 5, 10
+    JOB = "jobs/dist5/job_d5_T10_shots100000_d7jman1s7cos73ek3djg.json"
 
     sc = SurfaceCodeCircuit(distance=D, T=T)
     dataset = IBMJobDecoder(sc, job_path=JOB, dt=2, k=20)
