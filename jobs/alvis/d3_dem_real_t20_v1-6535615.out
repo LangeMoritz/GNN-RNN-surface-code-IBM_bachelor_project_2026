@@ -1,0 +1,35 @@
+This job can be monitored from: https://job.c3se.chalmers.se/alvis/6535615
+DEM -> real fine-tune (T=20)
+  jobs/dist3/job_d3_T20_shots100000_d7l210a8ui0s73b5s25g.json  -> train=80000, val=10000, test=10000
+  jobs/dist3/d3_T20_shots50000_d7p0uhu0b9ts73cj0e80.json  -> train=40000, val=5000, test=5000
+  jobs/dist3/job_d3_T20_shots50000_d7fmgem2cugc739qov6g.json  -> train=40000, val=5000, test=5000
+Real shots - train: 160000, val: 20000, test: 20000
+Calibrating DEM from 180000 shots (all train+val, test excluded)
+
+=== Phase A: DEM fine-tune ===
+Epoch 10: loss=0.4898, acc=0.7512, val_acc=0.7379 (c0=0.859, c1=0.539, n1/N=0.38), LFR/rd=1.82%
+Epoch 20: loss=0.4821, acc=0.7577, val_acc=0.7427 (c0=0.850, c1=0.570, n1/N=0.38), LFR/rd=1.78%
+Epoch 30: loss=0.4798, acc=0.7590, val_acc=0.7473 (c0=0.836, c1=0.597, n1/N=0.37), LFR/rd=1.73%
+Epoch 40: loss=0.4785, acc=0.7602, val_acc=0.7502 (c0=0.868, c1=0.554, n1/N=0.38), LFR/rd=1.70%
+Epoch 50: loss=0.4739, acc=0.7624, val_acc=0.7402 (c0=0.849, c1=0.561, n1/N=0.38), LFR/rd=1.80%
+Early stop at epoch 56: no improvement for 30 epochs (best=0.7502).
+
+=== Phase B: real-data fine-tune ===
+Epoch 10: loss=0.3852, acc=0.7977, val_acc=0.7945 (c0=0.862, c1=0.683, n1/N=0.38), LFR/rd=1.31%
+Epoch 20: loss=0.3789, acc=0.8022, val_acc=0.7904 (c0=0.866, c1=0.667, n1/N=0.38), LFR/rd=1.34%
+Epoch 30: loss=0.3757, acc=0.8047, val_acc=0.7956 (c0=0.866, c1=0.678, n1/N=0.37), LFR/rd=1.30%
+Epoch 40: loss=0.3727, acc=0.8053, val_acc=0.7895 (c0=0.861, c1=0.670, n1/N=0.38), LFR/rd=1.35%
+Epoch 50: loss=0.3719, acc=0.8065, val_acc=0.7923 (c0=0.860, c1=0.678, n1/N=0.37), LFR/rd=1.32%
+Early stop at epoch 53: no improvement for 40 epochs (best=0.8001).
+
+Real test:
+ acc = 0.7846  (c0=0.8497, c1=0.6795)
+ shots = 20000  (class-0: 12353, class-1: 7647)
+ P_L = 0.2154
+ LFR/round = 0.0139  (0.5 * (1 - (1 - 2P_L)^(1/T)) with T=20)
+
+MWPM real test:
+ acc = 0.7382  (c0=0.7802, c1=0.6703)
+ shots = 20000  (class-0: 12353, class-1: 7647)
+ P_L = 0.2618
+ LFR/round = 0.0182  (0.5 * (1 - (1 - 2P_L)^(1/T)) with T=20)
