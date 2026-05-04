@@ -18,17 +18,17 @@ from build_dem_from_detection_events import build_dem_from_detection_events
 from stim_alignment import build_stim_alignment, ibm_detections_to_stim_order
 from utils import TrainingLogger, print_test_result
 
-D, T = 5, 10
+D, T = 5, 20
 TRAIN_JOBS = [
-    "jobs/dist5/job_d5_T10_shots100000_d7jman1s7cos73ek3djg.json",
-    "jobs/dist5/d5_T10_shots100000_d7oben62jamc73bpfv00.json",
+    "jobs/dist5/d5_T20_shots150000_d7s7584t738s73cgb1u0.json",
+    "jobs/dist5/job_d5_T20_shots50000_d7fmn4l6agrc738ispv0.json",
 ]
 
 PRETRAINED = f"models/distance{D}.pt"
-SAVE_NAME = f"distance{D}_ibm_dem_real_t10"
-STATSFILE_NAME=F"d{D}_dem_real_t10"
-PATIENCE_A = 30
-PATIENCE_B = 40
+SAVE_NAME = f"distance{D}_dem_real_t20_a"
+STATSFILE_NAME=F"d{D}_dem_real_t20_a"
+PATIENCE_A = 25
+PATIENCE_B = 50
 
 # Phase A (DEM-sampled)
 args_dem = Args(
@@ -36,8 +36,8 @@ args_dem = Args(
     dt=2,
     batch_size=256,
     n_batches=800,
-    n_epochs=200,
-    lr=1e-4,
+    n_epochs=120,
+    lr=5e-5,
     min_lr=1e-6,
 )
 # Phase B (real samples)
@@ -47,8 +47,8 @@ args_real = Args(
     batch_size=64,
     n_batches=2500,
     n_epochs=200,
-    lr=1.5e-5,
-    min_lr=1e-6,
+    lr=5e-6,
+    min_lr=2.5e-7,
 )
 
 # Build train/val/test from TRAIN_JOBS

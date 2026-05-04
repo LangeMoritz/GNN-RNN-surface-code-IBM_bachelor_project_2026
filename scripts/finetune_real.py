@@ -10,14 +10,14 @@ from utils import TrainingLogger, print_test_result
 from mwpm_decoder import evaluate_mwpm_split
 
 
-D, T = 5, 10
+D, T = 5, 20
 TRAIN_JOBS = [
-    "jobs/dist5/job_d5_T10_shots100000_d7jman1s7cos73ek3djg.json",
-    "jobs/dist5/d5_T10_shots100000_d7oben62jamc73bpfv00.json",
+    "jobs/dist5/d5_T20_shots150000_d7s7584t738s73cgb1u0.json",
+    "jobs/dist5/job_d5_T20_shots50000_d7fmn4l6agrc738ispv0.json",
 ]
 
 PRETRAINED = f"models/distance{D}.pt"
-SAVE_NAME = f"distance{D}_t10_real"
+SAVE_NAME = f"distance{D}_real_t20_a"
 PATIENCE = 60
 
 args = Args(
@@ -26,7 +26,7 @@ args = Args(
     batch_size=64,
     n_batches=2500,
     n_epochs=200,
-    lr=1e-5,
+    lr=7.5e-6,
     min_lr=5e-7,
 )
 
@@ -43,11 +43,11 @@ real_train, real_val, real_test = prepare_real_datasets(
     dt=args.dt, k=args.k, batch_size=args.batch_size, device=args.device,
 )
 
-logger = TrainingLogger(logfile=f"{SAVE_NAME}.log", statsfile="finetune_real_t10")
+logger = TrainingLogger(logfile=f"{SAVE_NAME}.log", statsfile="finetune_real_t20_a")
 model.train_model(
     dataset=real_train,
     val_dataset=real_val,
-    n_val_batches=500,
+    n_val_batches=300,
     patience=PATIENCE,
     save=SAVE_NAME,
     logger=logger,

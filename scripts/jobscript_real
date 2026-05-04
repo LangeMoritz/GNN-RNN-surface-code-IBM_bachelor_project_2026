@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #SBATCH -A NAISS2025-5-525      # Project
 #SBATCH -p alvis                # Partition
-#SBATCH -t 0-06:00:00           # time limit days-hours:minutes:seconds
+#SBATCH -t 0-08:00:00           # time limit days-hours:minutes:seconds
 #SBATCH --gpus-per-node=A40:1   # GPUs 64GB of RAM; cost factor 1.0
 #SBATCH --output=jobs/alvis/%x-%j.out
-#SBATCH --job-name=d5_real_t10
+#SBATCH --job-name=d5_real_t20_a
 
 cd "$SLURM_SUBMIT_DIR"
 
