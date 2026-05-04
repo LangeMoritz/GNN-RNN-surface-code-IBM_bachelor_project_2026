@@ -4,7 +4,7 @@
 #SBATCH -t 0-06:00:00           # time limit days-hours:minutes:seconds
 #SBATCH --gpus-per-node=A40:1   # GPUs 64GB of RAM; cost factor 1.0
 #SBATCH --output=jobs/alvis/%x-%j.out
-#SBATCH --job-name=d5_real_t10_b
+#SBATCH --job-name=d5_real_t10
 
 cd "$SLURM_SUBMIT_DIR"
 
