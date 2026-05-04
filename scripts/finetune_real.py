@@ -17,14 +17,14 @@ TRAIN_JOBS = [
 ]
 
 PRETRAINED = f"models/distance{D}.pt"
-SAVE_NAME = f"distance{D}_ibm_real_t10_c"
+SAVE_NAME = f"distance{D}_ibm_real_t10_b"
 PATIENCE = 60
 
 args = Args(
     distance=D,
     dt=2,
-    batch_size=128,
-    n_batches=1250,
+    batch_size=64,
+    n_batches=2500,
     n_epochs=200,
     lr=1e-5,
     min_lr=5e-7,
@@ -43,7 +43,7 @@ real_train, real_val, real_test = prepare_real_datasets(
     dt=args.dt, k=args.k, batch_size=args.batch_size, device=args.device,
 )
 
-logger = TrainingLogger(logfile=f"{SAVE_NAME}.log", statsfile="finetune_real")
+logger = TrainingLogger(logfile=f"{SAVE_NAME}.log", statsfile="finetune_real_t10_B")
 model.train_model(
     dataset=real_train,
     val_dataset=real_val,
