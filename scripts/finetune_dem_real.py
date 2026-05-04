@@ -25,10 +25,10 @@ TRAIN_JOBS = [
 ]
 
 PRETRAINED = f"models/distance{D}.pt"
-SAVE_NAME = f"distance{D}_dem_real_t20_a"
-STATSFILE_NAME=F"d{D}_dem_real_t20_a"
-PATIENCE_A = 25
-PATIENCE_B = 50
+SAVE_NAME = f"distance{D}_dem_real_t20_c"
+STATSFILE_NAME=F"d{D}_dem_real_t20_c"
+PATIENCE_A = 20
+PATIENCE_B = 60
 
 # Phase A (DEM-sampled)
 args_dem = Args(
@@ -37,8 +37,8 @@ args_dem = Args(
     batch_size=256,
     n_batches=800,
     n_epochs=120,
-    lr=5e-5,
-    min_lr=1e-6,
+    lr=2.5e-5,
+    min_lr=5e-7,
 )
 # Phase B (real samples)
 args_real = Args(
@@ -47,8 +47,8 @@ args_real = Args(
     batch_size=64,
     n_batches=2500,
     n_epochs=200,
-    lr=5e-6,
-    min_lr=2.5e-7,
+    lr=1e-5,
+    min_lr=5e-7,
 )
 
 # Build train/val/test from TRAIN_JOBS
