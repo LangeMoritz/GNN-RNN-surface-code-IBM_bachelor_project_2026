@@ -18,11 +18,11 @@ from utils import print_test_result
 # ]
 
 # d3 T20 jobs
-TRAIN_JOBS = [
-    "jobs/dist3/job_d3_T20_shots100000_d7l210a8ui0s73b5s25g.json",
-    "jobs/dist3/d3_T20_shots50000_d7p0uhu0b9ts73cj0e80.json",
-    "jobs/dist3/job_d3_T20_shots50000_d7fmgem2cugc739qov6g.json"
-]
+# TRAIN_JOBS = [
+#     "jobs/dist3/job_d3_T20_shots100000_d7l210a8ui0s73b5s25g.json",
+#     "jobs/dist3/d3_T20_shots50000_d7p0uhu0b9ts73cj0e80.json",
+#     "jobs/dist3/job_d3_T20_shots50000_d7fmgem2cugc739qov6g.json"
+# ]
 
 # d5 T10, 100k-shot jobs
 # TRAIN_JOBS = [
@@ -30,15 +30,14 @@ TRAIN_JOBS = [
 #     "jobs/dist5/d5_T10_shots100000_d7oben62jamc73bpfv00.json",
 # ]
 
-# d5 T20, 50k-shot job
-# TRAIN_JOBS = [
-#     "jobs/dist5/job_d5_T20_shots50000_d7fmn4l6agrc738ispv0.json",
-# ]
+# d5 T20, 200k-shot jobs
+TRAIN_JOBS = [
+    "jobs/dist5/d5_T20_shots150000_d7s7584t738s73cgb1u0.json",
+    "jobs/dist5/job_d5_T20_shots50000_d7fmn4l6agrc738ispv0.json"
+]
 
-
-
-D, T = 3, 20
-MODEL_PATH = f"models/distance{D}_ibm_real_t20_v1.pt"
+D, T = 5, 20
+MODEL_PATH = f"models/distance{D}.pt"
 
 if __name__ == "__main__":
     args = Args(distance=D, dt=2)
