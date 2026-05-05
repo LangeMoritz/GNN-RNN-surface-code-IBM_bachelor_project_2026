@@ -43,7 +43,7 @@ real_train, real_val, real_test = prepare_real_datasets(
     dt=args.dt, k=args.k, batch_size=args.batch_size, device=args.device,
 )
 
-logger = TrainingLogger(logfile=f"{SAVE_NAME}.log", statsfile="finetune_real_t20_c")
+logger = TrainingLogger(logfile=f"{SAVE_NAME}.log", statsfile=f"d{D}_stats_real_t{T}_c")
 model.train_model(
     dataset=real_train,
     val_dataset=real_val,

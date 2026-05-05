@@ -14,12 +14,12 @@ plt.rcParams.update({
 # 1. Training curves
 # =========================
 
-d3_dem_t10 = np.load("jobs/stats/d3_finetune_dem_real_phaseA.npy")
-d3_real_t10 = np.load("jobs/stats/d3_finetune_dem_real_phaseB.npy")
-d3_dem_t20 = np.load("jobs/stats/d3_finetune_dem_real_phaseA_T20.npy")
-d3_real_t20 = np.load("jobs/stats/d3_finetune_dem_real_phaseB_T20.npy")
+d3_dem_t10 = np.load("jobs/stats/d3_stats_dem_real_phaseA_t10.npy")
+d3_real_t10 = np.load("jobs/stats/d3_stats_dem_real_phaseB_t10.npy")
+d3_dem_t20 = np.load("jobs/stats/d3_stats_dem_real_phaseA_t20.npy")
+d3_real_t20 = np.load("jobs/stats/d3_stats_dem_real_phaseB_t20.npy")
 
-d5_real_t10 = np.load("jobs/stats/d5_finetune_real_t10.npy")
+d5_real_t10 = np.load("jobs/stats/d5_stats_real_t10.npy")
 
 # Rad 4 = train accuracy
 # Rad 10 = validation accuracy

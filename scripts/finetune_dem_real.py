@@ -26,7 +26,7 @@ TRAIN_JOBS = [
 
 PRETRAINED = f"models/distance{D}.pt"
 SAVE_NAME = f"distance{D}_dem_real_t20_c"
-STATSFILE_NAME=F"d{D}_dem_real_t20_c"
+STATSFILE_NAME=f"d{D}_stats_dem_real_t{T}_c"
 PATIENCE_A = 20
 PATIENCE_B = 60
 
