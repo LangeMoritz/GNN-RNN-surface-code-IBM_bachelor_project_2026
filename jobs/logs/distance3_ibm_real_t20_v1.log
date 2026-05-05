@@ -1,0 +1,715 @@
+Training with t = [10], dt = 2, distance = 3, lr = 1.50e-05
+EPOCH 1 starting
+EPOCH 1 finished in 52.791 seconds with lr = 1.50e-05:
+	loss = 0.48032, accuracy = 0.7313 (best=0.7313)
+	val accuracy = 0.7598 (best=0.7598)
+	class 0: mean = 0.2600 std = 0.2285 fraction = 0.6186
+	class 1: mean = 0.5779 std = 0.2288 fraction = 0.3814
+	model time = 27.01 seconds, data time = 22.46 seconds
+EPOCH 2 starting
+EPOCH 2 finished in 51.606 seconds with lr = 1.42e-05:
+	loss = 0.43296, accuracy = 0.7630 (best=0.7630)
+	val accuracy = 0.7664 (best=0.7664)
+	class 0: mean = 0.2331 std = 0.2294 fraction = 0.6219
+	class 1: mean = 0.6165 std = 0.2442 fraction = 0.3781
+	model time = 26.28 seconds, data time = 22.04 seconds
+EPOCH 3 starting
+EPOCH 3 finished in 51.596 seconds with lr = 1.35e-05:
+	loss = 0.41835, accuracy = 0.7729 (best=0.7729)
+	val accuracy = 0.7677 (best=0.7677)
+	class 0: mean = 0.2240 std = 0.2314 fraction = 0.6221
+	class 1: mean = 0.6302 std = 0.2473 fraction = 0.3779
+	model time = 26.29 seconds, data time = 22.02 seconds
+EPOCH 4 starting
+EPOCH 4 finished in 52.815 seconds with lr = 1.29e-05:
+	loss = 0.41756, accuracy = 0.7742 (best=0.7742)
+	val accuracy = 0.7691 (best=0.7691)
+	class 0: mean = 0.2239 std = 0.2317 fraction = 0.6218
+	class 1: mean = 0.6322 std = 0.2473 fraction = 0.3782
+	model time = 27.03 seconds, data time = 22.42 seconds
+EPOCH 5 starting
+EPOCH 5 finished in 51.996 seconds with lr = 1.22e-05:
+	loss = 0.41004, accuracy = 0.7781 (best=0.7781)
+	val accuracy = 0.7802 (best=0.7802)
+	class 0: mean = 0.2207 std = 0.2312 fraction = 0.6195
+	class 1: mean = 0.6410 std = 0.2507 fraction = 0.3805
+	model time = 26.58 seconds, data time = 22.11 seconds
+EPOCH 6 starting
+EPOCH 6 finished in 52.059 seconds with lr = 1.16e-05:
+	loss = 0.40821, accuracy = 0.7798 (best=0.7798)
+	val accuracy = 0.7797 (best=0.7802)
+	class 0: mean = 0.2191 std = 0.2314 fraction = 0.6202
+	class 1: mean = 0.6423 std = 0.2515 fraction = 0.3798
+	model time = 26.56 seconds, data time = 22.21 seconds
+EPOCH 7 starting
+EPOCH 7 finished in 51.943 seconds with lr = 1.10e-05:
+	loss = 0.40598, accuracy = 0.7813 (best=0.7813)
+	val accuracy = 0.7837 (best=0.7837)
+	class 0: mean = 0.2178 std = 0.2312 fraction = 0.6216
+	class 1: mean = 0.6430 std = 0.2513 fraction = 0.3784
+	model time = 26.44 seconds, data time = 22.13 seconds
+EPOCH 8 starting
+EPOCH 8 finished in 51.943 seconds with lr = 1.05e-05:
+	loss = 0.40347, accuracy = 0.7821 (best=0.7821)
+	val accuracy = 0.7797 (best=0.7837)
+	class 0: mean = 0.2163 std = 0.2317 fraction = 0.6204
+	class 1: mean = 0.6463 std = 0.2521 fraction = 0.3796
+	model time = 26.47 seconds, data time = 22.20 seconds
+EPOCH 9 starting
+EPOCH 9 finished in 52.070 seconds with lr = 9.95e-06:
+	loss = 0.40151, accuracy = 0.7848 (best=0.7848)
+	val accuracy = 0.7778 (best=0.7837)
+	class 0: mean = 0.2142 std = 0.2321 fraction = 0.6228
+	class 1: mean = 0.6473 std = 0.2524 fraction = 0.3772
+	model time = 26.56 seconds, data time = 22.21 seconds
+EPOCH 10 starting
+EPOCH 10 finished in 51.799 seconds with lr = 9.45e-06:
+	loss = 0.40030, accuracy = 0.7863 (best=0.7863)
+	val accuracy = 0.7848 (best=0.7848)
+	class 0: mean = 0.2134 std = 0.2317 fraction = 0.6226
+	class 1: mean = 0.6477 std = 0.2522 fraction = 0.3774
+	model time = 26.38 seconds, data time = 22.14 seconds
+EPOCH 11 starting
+EPOCH 11 finished in 52.032 seconds with lr = 8.98e-06:
+	loss = 0.40018, accuracy = 0.7866 (best=0.7866)
+	val accuracy = 0.7783 (best=0.7848)
+	class 0: mean = 0.2136 std = 0.2315 fraction = 0.6216
+	class 1: mean = 0.6489 std = 0.2525 fraction = 0.3784
+	model time = 26.53 seconds, data time = 22.24 seconds
+EPOCH 12 starting
+EPOCH 12 finished in 51.859 seconds with lr = 8.53e-06:
+	loss = 0.39881, accuracy = 0.7859 (best=0.7866)
+	val accuracy = 0.7776 (best=0.7848)
+	class 0: mean = 0.2138 std = 0.2321 fraction = 0.6209
+	class 1: mean = 0.6507 std = 0.2526 fraction = 0.3791
+	model time = 26.40 seconds, data time = 22.16 seconds
+EPOCH 13 starting
+EPOCH 13 finished in 51.826 seconds with lr = 8.11e-06:
+	loss = 0.39686, accuracy = 0.7882 (best=0.7882)
+	val accuracy = 0.7841 (best=0.7848)
+	class 0: mean = 0.2123 std = 0.2323 fraction = 0.6213
+	class 1: mean = 0.6519 std = 0.2516 fraction = 0.3787
+	model time = 26.39 seconds, data time = 22.18 seconds
+EPOCH 14 starting
+EPOCH 14 finished in 52.335 seconds with lr = 7.70e-06:
+	loss = 0.39651, accuracy = 0.7883 (best=0.7883)
+	val accuracy = 0.7913 (best=0.7913)
+	class 0: mean = 0.2121 std = 0.2321 fraction = 0.6192
+	class 1: mean = 0.6539 std = 0.2538 fraction = 0.3808
+	model time = 26.68 seconds, data time = 22.33 seconds
+EPOCH 15 starting
+EPOCH 15 finished in 52.778 seconds with lr = 7.32e-06:
+	loss = 0.39520, accuracy = 0.7895 (best=0.7895)
+	val accuracy = 0.7833 (best=0.7913)
+	class 0: mean = 0.2116 std = 0.2307 fraction = 0.6227
+	class 1: mean = 0.6523 std = 0.2540 fraction = 0.3773
+	model time = 27.02 seconds, data time = 22.44 seconds
+EPOCH 16 starting
+EPOCH 16 finished in 52.928 seconds with lr = 6.95e-06:
+	loss = 0.39492, accuracy = 0.7904 (best=0.7904)
+	val accuracy = 0.7878 (best=0.7913)
+	class 0: mean = 0.2104 std = 0.2317 fraction = 0.6222
+	class 1: mean = 0.6534 std = 0.2538 fraction = 0.3778
+	model time = 27.08 seconds, data time = 22.51 seconds
+EPOCH 17 starting
+EPOCH 17 finished in 52.780 seconds with lr = 6.60e-06:
+	loss = 0.39394, accuracy = 0.7907 (best=0.7907)
+	val accuracy = 0.7812 (best=0.7913)
+	class 0: mean = 0.2102 std = 0.2322 fraction = 0.6216
+	class 1: mean = 0.6548 std = 0.2533 fraction = 0.3784
+	model time = 27.01 seconds, data time = 22.41 seconds
+EPOCH 18 starting
+EPOCH 18 finished in 52.859 seconds with lr = 6.27e-06:
+	loss = 0.39250, accuracy = 0.7916 (best=0.7916)
+	val accuracy = 0.7877 (best=0.7913)
+	class 0: mean = 0.2095 std = 0.2322 fraction = 0.6219
+	class 1: mean = 0.6559 std = 0.2536 fraction = 0.3781
+	model time = 27.07 seconds, data time = 22.46 seconds
+EPOCH 19 starting
+EPOCH 19 finished in 52.783 seconds with lr = 5.96e-06:
+	loss = 0.39320, accuracy = 0.7910 (best=0.7916)
+	val accuracy = 0.7905 (best=0.7913)
+	class 0: mean = 0.2103 std = 0.2336 fraction = 0.6190
+	class 1: mean = 0.6578 std = 0.2524 fraction = 0.3810
+	model time = 27.00 seconds, data time = 22.46 seconds
+EPOCH 20 starting
+EPOCH 20 finished in 52.966 seconds with lr = 5.66e-06:
+	loss = 0.39025, accuracy = 0.7933 (best=0.7933)
+	val accuracy = 0.7860 (best=0.7913)
+	class 0: mean = 0.2091 std = 0.2320 fraction = 0.6212
+	class 1: mean = 0.6589 std = 0.2534 fraction = 0.3788
+	model time = 27.11 seconds, data time = 22.50 seconds
+EPOCH 21 starting
+EPOCH 21 finished in 52.925 seconds with lr = 5.38e-06:
+	loss = 0.38952, accuracy = 0.7940 (best=0.7940)
+	val accuracy = 0.7836 (best=0.7913)
+	class 0: mean = 0.2069 std = 0.2317 fraction = 0.6221
+	class 1: mean = 0.6586 std = 0.2548 fraction = 0.3779
+	model time = 27.16 seconds, data time = 22.44 seconds
+EPOCH 22 starting
+EPOCH 22 finished in 52.966 seconds with lr = 5.11e-06:
+	loss = 0.39009, accuracy = 0.7940 (best=0.7940)
+	val accuracy = 0.7866 (best=0.7913)
+	class 0: mean = 0.2075 std = 0.2321 fraction = 0.6224
+	class 1: mean = 0.6579 std = 0.2539 fraction = 0.3776
+	model time = 27.05 seconds, data time = 22.57 seconds
+EPOCH 23 starting
+EPOCH 23 finished in 52.781 seconds with lr = 4.85e-06:
+	loss = 0.39037, accuracy = 0.7944 (best=0.7944)
+	val accuracy = 0.7919 (best=0.7919)
+	class 0: mean = 0.2085 std = 0.2325 fraction = 0.6190
+	class 1: mean = 0.6596 std = 0.2534 fraction = 0.3810
+	model time = 27.01 seconds, data time = 22.42 seconds
+EPOCH 24 starting
+EPOCH 24 finished in 52.898 seconds with lr = 4.61e-06:
+	loss = 0.38971, accuracy = 0.7926 (best=0.7944)
+	val accuracy = 0.7878 (best=0.7919)
+	class 0: mean = 0.2091 std = 0.2321 fraction = 0.6208
+	class 1: mean = 0.6602 std = 0.2541 fraction = 0.3792
+	model time = 27.07 seconds, data time = 22.51 seconds
+EPOCH 25 starting
+EPOCH 25 finished in 52.962 seconds with lr = 4.38e-06:
+	loss = 0.38822, accuracy = 0.7937 (best=0.7944)
+	val accuracy = 0.7840 (best=0.7919)
+	class 0: mean = 0.2072 std = 0.2324 fraction = 0.6194
+	class 1: mean = 0.6608 std = 0.2543 fraction = 0.3806
+	model time = 27.07 seconds, data time = 22.53 seconds
+EPOCH 26 starting
+EPOCH 26 finished in 52.937 seconds with lr = 4.16e-06:
+	loss = 0.38976, accuracy = 0.7930 (best=0.7944)
+	val accuracy = 0.7887 (best=0.7919)
+	class 0: mean = 0.2076 std = 0.2324 fraction = 0.6225
+	class 1: mean = 0.6583 std = 0.2539 fraction = 0.3775
+	model time = 27.06 seconds, data time = 22.54 seconds
+EPOCH 27 starting
+EPOCH 27 finished in 53.183 seconds with lr = 3.95e-06:
+	loss = 0.38766, accuracy = 0.7960 (best=0.7960)
+	val accuracy = 0.7818 (best=0.7919)
+	class 0: mean = 0.2068 std = 0.2320 fraction = 0.6205
+	class 1: mean = 0.6611 std = 0.2544 fraction = 0.3795
+	model time = 27.19 seconds, data time = 22.62 seconds
+EPOCH 28 starting
+EPOCH 28 finished in 52.964 seconds with lr = 3.76e-06:
+	loss = 0.38562, accuracy = 0.7962 (best=0.7962)
+	val accuracy = 0.7759 (best=0.7919)
+	class 0: mean = 0.2062 std = 0.2332 fraction = 0.6192
+	class 1: mean = 0.6643 std = 0.2536 fraction = 0.3808
+	model time = 27.08 seconds, data time = 22.53 seconds
+EPOCH 29 starting
+EPOCH 29 finished in 52.606 seconds with lr = 3.57e-06:
+	loss = 0.38538, accuracy = 0.7977 (best=0.7977)
+	val accuracy = 0.7874 (best=0.7919)
+	class 0: mean = 0.2059 std = 0.2326 fraction = 0.6209
+	class 1: mean = 0.6641 std = 0.2543 fraction = 0.3791
+	model time = 26.90 seconds, data time = 22.42 seconds
+EPOCH 30 starting
+EPOCH 30 finished in 52.833 seconds with lr = 3.39e-06:
+	loss = 0.38726, accuracy = 0.7961 (best=0.7977)
+	val accuracy = 0.7876 (best=0.7919)
+	class 0: mean = 0.2068 std = 0.2323 fraction = 0.6205
+	class 1: mean = 0.6622 std = 0.2546 fraction = 0.3795
+	model time = 26.98 seconds, data time = 22.53 seconds
+EPOCH 31 starting
+EPOCH 31 finished in 52.926 seconds with lr = 3.22e-06:
+	loss = 0.38766, accuracy = 0.7951 (best=0.7977)
+	val accuracy = 0.7866 (best=0.7919)
+	class 0: mean = 0.2075 std = 0.2331 fraction = 0.6178
+	class 1: mean = 0.6639 std = 0.2538 fraction = 0.3822
+	model time = 27.05 seconds, data time = 22.53 seconds
+EPOCH 32 starting
+EPOCH 32 finished in 52.887 seconds with lr = 3.06e-06:
+	loss = 0.38686, accuracy = 0.7951 (best=0.7977)
+	val accuracy = 0.7821 (best=0.7919)
+	class 0: mean = 0.2072 std = 0.2328 fraction = 0.6186
+	class 1: mean = 0.6639 std = 0.2542 fraction = 0.3814
+	model time = 27.01 seconds, data time = 22.54 seconds
+EPOCH 33 starting
+EPOCH 33 finished in 52.778 seconds with lr = 2.91e-06:
+	loss = 0.38529, accuracy = 0.7973 (best=0.7977)
+	val accuracy = 0.7845 (best=0.7919)
+	class 0: mean = 0.2059 std = 0.2312 fraction = 0.6210
+	class 1: mean = 0.6643 std = 0.2558 fraction = 0.3790
+	model time = 26.97 seconds, data time = 22.50 seconds
+EPOCH 34 starting
+EPOCH 34 finished in 52.403 seconds with lr = 2.76e-06:
+	loss = 0.38576, accuracy = 0.7968 (best=0.7977)
+	val accuracy = 0.7884 (best=0.7919)
+	class 0: mean = 0.2045 std = 0.2310 fraction = 0.6232
+	class 1: mean = 0.6607 std = 0.2559 fraction = 0.3768
+	model time = 26.76 seconds, data time = 22.38 seconds
+EPOCH 35 starting
+EPOCH 35 finished in 52.613 seconds with lr = 2.62e-06:
+	loss = 0.38507, accuracy = 0.7970 (best=0.7977)
+	val accuracy = 0.7795 (best=0.7919)
+	class 0: mean = 0.2058 std = 0.2331 fraction = 0.6202
+	class 1: mean = 0.6650 std = 0.2542 fraction = 0.3798
+	model time = 26.82 seconds, data time = 22.50 seconds
+EPOCH 36 starting
+EPOCH 36 finished in 52.514 seconds with lr = 2.49e-06:
+	loss = 0.38305, accuracy = 0.8000 (best=0.8000)
+	val accuracy = 0.7858 (best=0.7919)
+	class 0: mean = 0.2037 std = 0.2318 fraction = 0.6237
+	class 1: mean = 0.6642 std = 0.2550 fraction = 0.3763
+	model time = 26.76 seconds, data time = 22.44 seconds
+EPOCH 37 starting
+EPOCH 37 finished in 52.767 seconds with lr = 2.37e-06:
+	loss = 0.38677, accuracy = 0.7963 (best=0.8000)
+	val accuracy = 0.7853 (best=0.7919)
+	class 0: mean = 0.2058 std = 0.2325 fraction = 0.6200
+	class 1: mean = 0.6612 std = 0.2535 fraction = 0.3800
+	model time = 27.00 seconds, data time = 22.49 seconds
+EPOCH 38 starting
+EPOCH 38 finished in 52.295 seconds with lr = 2.25e-06:
+	loss = 0.38635, accuracy = 0.7975 (best=0.8000)
+	val accuracy = 0.7890 (best=0.7919)
+	class 0: mean = 0.2064 std = 0.2329 fraction = 0.6189
+	class 1: mean = 0.6650 std = 0.2543 fraction = 0.3811
+	model time = 26.69 seconds, data time = 22.35 seconds
+EPOCH 39 starting
+EPOCH 39 finished in 51.708 seconds with lr = 2.14e-06:
+	loss = 0.38387, accuracy = 0.7983 (best=0.8000)
+	val accuracy = 0.7855 (best=0.7919)
+	class 0: mean = 0.2043 std = 0.2323 fraction = 0.6215
+	class 1: mean = 0.6644 std = 0.2547 fraction = 0.3785
+	model time = 26.31 seconds, data time = 22.20 seconds
+EPOCH 40 starting
+EPOCH 40 finished in 51.255 seconds with lr = 2.03e-06:
+	loss = 0.38621, accuracy = 0.7965 (best=0.8000)
+	val accuracy = 0.7860 (best=0.7919)
+	class 0: mean = 0.2064 std = 0.2331 fraction = 0.6201
+	class 1: mean = 0.6631 std = 0.2532 fraction = 0.3799
+	model time = 25.93 seconds, data time = 22.14 seconds
+EPOCH 41 starting
+EPOCH 41 finished in 51.395 seconds with lr = 1.93e-06:
+	loss = 0.38383, accuracy = 0.7970 (best=0.8000)
+	val accuracy = 0.7823 (best=0.7919)
+	class 0: mean = 0.2048 std = 0.2324 fraction = 0.6205
+	class 1: mean = 0.6652 std = 0.2543 fraction = 0.3795
+	model time = 26.15 seconds, data time = 22.04 seconds
+EPOCH 42 starting
+EPOCH 42 finished in 51.955 seconds with lr = 1.83e-06:
+	loss = 0.38491, accuracy = 0.7980 (best=0.8000)
+	val accuracy = 0.7888 (best=0.7919)
+	class 0: mean = 0.2051 std = 0.2317 fraction = 0.6199
+	class 1: mean = 0.6645 std = 0.2557 fraction = 0.3801
+	model time = 26.54 seconds, data time = 22.19 seconds
+EPOCH 43 starting
+EPOCH 43 finished in 51.879 seconds with lr = 1.74e-06:
+	loss = 0.38511, accuracy = 0.7982 (best=0.8000)
+	val accuracy = 0.7822 (best=0.7919)
+	class 0: mean = 0.2054 std = 0.2317 fraction = 0.6218
+	class 1: mean = 0.6635 std = 0.2548 fraction = 0.3782
+	model time = 26.51 seconds, data time = 22.14 seconds
+EPOCH 44 starting
+EPOCH 44 finished in 51.641 seconds with lr = 1.65e-06:
+	loss = 0.38444, accuracy = 0.7989 (best=0.8000)
+	val accuracy = 0.7906 (best=0.7919)
+	class 0: mean = 0.2048 std = 0.2317 fraction = 0.6231
+	class 1: mean = 0.6635 std = 0.2546 fraction = 0.3769
+	model time = 26.29 seconds, data time = 22.17 seconds
+EPOCH 45 starting
+EPOCH 45 finished in 50.788 seconds with lr = 1.57e-06:
+	loss = 0.38514, accuracy = 0.7988 (best=0.8000)
+	val accuracy = 0.7885 (best=0.7919)
+	class 0: mean = 0.2046 std = 0.2313 fraction = 0.6198
+	class 1: mean = 0.6641 std = 0.2557 fraction = 0.3802
+	model time = 25.80 seconds, data time = 21.82 seconds
+EPOCH 46 starting
+EPOCH 46 finished in 50.804 seconds with lr = 1.49e-06:
+	loss = 0.38229, accuracy = 0.7982 (best=0.8000)
+	val accuracy = 0.7917 (best=0.7919)
+	class 0: mean = 0.2033 std = 0.2325 fraction = 0.6183
+	class 1: mean = 0.6669 std = 0.2544 fraction = 0.3817
+	model time = 25.80 seconds, data time = 21.84 seconds
+EPOCH 47 starting
+EPOCH 47 finished in 50.885 seconds with lr = 1.42e-06:
+	loss = 0.38225, accuracy = 0.8000 (best=0.8000)
+	val accuracy = 0.7910 (best=0.7919)
+	class 0: mean = 0.2040 std = 0.2338 fraction = 0.6212
+	class 1: mean = 0.6677 std = 0.2539 fraction = 0.3788
+	model time = 25.85 seconds, data time = 21.85 seconds
+EPOCH 48 starting
+EPOCH 48 finished in 51.168 seconds with lr = 1.35e-06:
+	loss = 0.38291, accuracy = 0.7998 (best=0.8000)
+	val accuracy = 0.7820 (best=0.7919)
+	class 0: mean = 0.2047 std = 0.2326 fraction = 0.6202
+	class 1: mean = 0.6677 std = 0.2552 fraction = 0.3798
+	model time = 25.94 seconds, data time = 22.03 seconds
+EPOCH 49 starting
+EPOCH 49 finished in 51.050 seconds with lr = 1.28e-06:
+	loss = 0.38210, accuracy = 0.7999 (best=0.8000)
+	val accuracy = 0.7796 (best=0.7919)
+	class 0: mean = 0.2034 std = 0.2316 fraction = 0.6211
+	class 1: mean = 0.6657 std = 0.2547 fraction = 0.3789
+	model time = 25.93 seconds, data time = 21.92 seconds
+EPOCH 50 starting
+EPOCH 50 finished in 50.888 seconds with lr = 1.21e-06:
+	loss = 0.38285, accuracy = 0.7991 (best=0.8000)
+	val accuracy = 0.7815 (best=0.7919)
+	class 0: mean = 0.2046 std = 0.2322 fraction = 0.6195
+	class 1: mean = 0.6664 std = 0.2547 fraction = 0.3805
+	model time = 25.87 seconds, data time = 21.85 seconds
+EPOCH 51 starting
+EPOCH 51 finished in 50.878 seconds with lr = 1.15e-06:
+	loss = 0.38196, accuracy = 0.8004 (best=0.8004)
+	val accuracy = 0.7833 (best=0.7919)
+	class 0: mean = 0.2036 std = 0.2321 fraction = 0.6215
+	class 1: mean = 0.6665 std = 0.2551 fraction = 0.3785
+	model time = 25.86 seconds, data time = 21.85 seconds
+EPOCH 52 starting
+EPOCH 52 finished in 51.044 seconds with lr = 1.10e-06:
+	loss = 0.38289, accuracy = 0.7992 (best=0.8004)
+	val accuracy = 0.7929 (best=0.7929)
+	class 0: mean = 0.2034 std = 0.2317 fraction = 0.6230
+	class 1: mean = 0.6640 std = 0.2553 fraction = 0.3770
+	model time = 25.98 seconds, data time = 21.90 seconds
+EPOCH 53 starting
+EPOCH 53 finished in 50.894 seconds with lr = 1.04e-06:
+	loss = 0.38442, accuracy = 0.7975 (best=0.8004)
+	val accuracy = 0.7867 (best=0.7929)
+	class 0: mean = 0.2049 std = 0.2325 fraction = 0.6200
+	class 1: mean = 0.6650 std = 0.2544 fraction = 0.3800
+	model time = 25.87 seconds, data time = 21.86 seconds
+EPOCH 54 starting
+EPOCH 54 finished in 50.885 seconds with lr = 1.00e-06:
+	loss = 0.38264, accuracy = 0.7987 (best=0.8004)
+	val accuracy = 0.7837 (best=0.7929)
+	class 0: mean = 0.2040 std = 0.2315 fraction = 0.6211
+	class 1: mean = 0.6659 std = 0.2554 fraction = 0.3789
+	model time = 25.85 seconds, data time = 21.86 seconds
+EPOCH 55 starting
+EPOCH 55 finished in 50.896 seconds with lr = 1.00e-06:
+	loss = 0.38261, accuracy = 0.7998 (best=0.8004)
+	val accuracy = 0.7866 (best=0.7929)
+	class 0: mean = 0.2038 std = 0.2326 fraction = 0.6220
+	class 1: mean = 0.6660 std = 0.2543 fraction = 0.3780
+	model time = 25.85 seconds, data time = 21.87 seconds
+EPOCH 56 starting
+EPOCH 56 finished in 50.854 seconds with lr = 1.00e-06:
+	loss = 0.38012, accuracy = 0.8017 (best=0.8017)
+	val accuracy = 0.7887 (best=0.7929)
+	class 0: mean = 0.2016 std = 0.2314 fraction = 0.6206
+	class 1: mean = 0.6670 std = 0.2549 fraction = 0.3794
+	model time = 25.84 seconds, data time = 21.83 seconds
+EPOCH 57 starting
+EPOCH 57 finished in 50.872 seconds with lr = 1.00e-06:
+	loss = 0.37967, accuracy = 0.8007 (best=0.8017)
+	val accuracy = 0.7830 (best=0.7929)
+	class 0: mean = 0.2031 std = 0.2320 fraction = 0.6214
+	class 1: mean = 0.6695 std = 0.2550 fraction = 0.3786
+	model time = 25.85 seconds, data time = 21.85 seconds
+EPOCH 58 starting
+EPOCH 58 finished in 50.894 seconds with lr = 1.00e-06:
+	loss = 0.38311, accuracy = 0.7981 (best=0.8017)
+	val accuracy = 0.7915 (best=0.7929)
+	class 0: mean = 0.2036 std = 0.2325 fraction = 0.6233
+	class 1: mean = 0.6646 std = 0.2548 fraction = 0.3767
+	model time = 25.86 seconds, data time = 21.87 seconds
+EPOCH 59 starting
+EPOCH 59 finished in 50.892 seconds with lr = 1.00e-06:
+	loss = 0.38318, accuracy = 0.8002 (best=0.8017)
+	val accuracy = 0.7919 (best=0.7929)
+	class 0: mean = 0.2030 std = 0.2314 fraction = 0.6206
+	class 1: mean = 0.6650 std = 0.2560 fraction = 0.3794
+	model time = 25.85 seconds, data time = 21.87 seconds
+EPOCH 60 starting
+EPOCH 60 finished in 50.861 seconds with lr = 1.00e-06:
+	loss = 0.37926, accuracy = 0.8014 (best=0.8017)
+	val accuracy = 0.7850 (best=0.7929)
+	class 0: mean = 0.2019 std = 0.2313 fraction = 0.6224
+	class 1: mean = 0.6670 std = 0.2549 fraction = 0.3776
+	model time = 25.86 seconds, data time = 21.84 seconds
+EPOCH 61 starting
+EPOCH 61 finished in 50.903 seconds with lr = 1.00e-06:
+	loss = 0.38049, accuracy = 0.8005 (best=0.8017)
+	val accuracy = 0.7805 (best=0.7929)
+	class 0: mean = 0.2029 std = 0.2326 fraction = 0.6216
+	class 1: mean = 0.6682 std = 0.2551 fraction = 0.3784
+	model time = 25.86 seconds, data time = 21.86 seconds
+EPOCH 62 starting
+EPOCH 62 finished in 50.871 seconds with lr = 1.00e-06:
+	loss = 0.37965, accuracy = 0.8021 (best=0.8021)
+	val accuracy = 0.7865 (best=0.7929)
+	class 0: mean = 0.2024 std = 0.2315 fraction = 0.6214
+	class 1: mean = 0.6688 std = 0.2555 fraction = 0.3786
+	model time = 25.86 seconds, data time = 21.84 seconds
+EPOCH 63 starting
+EPOCH 63 finished in 50.917 seconds with lr = 1.00e-06:
+	loss = 0.38092, accuracy = 0.7997 (best=0.8021)
+	val accuracy = 0.7827 (best=0.7929)
+	class 0: mean = 0.2037 std = 0.2323 fraction = 0.6206
+	class 1: mean = 0.6683 std = 0.2550 fraction = 0.3794
+	model time = 25.87 seconds, data time = 21.87 seconds
+EPOCH 64 starting
+EPOCH 64 finished in 50.925 seconds with lr = 1.00e-06:
+	loss = 0.38310, accuracy = 0.7993 (best=0.8021)
+	val accuracy = 0.7880 (best=0.7929)
+	class 0: mean = 0.2037 std = 0.2324 fraction = 0.6217
+	class 1: mean = 0.6651 std = 0.2545 fraction = 0.3783
+	model time = 25.87 seconds, data time = 21.88 seconds
+EPOCH 65 starting
+EPOCH 65 finished in 51.570 seconds with lr = 1.00e-06:
+	loss = 0.37923, accuracy = 0.8031 (best=0.8031)
+	val accuracy = 0.7831 (best=0.7929)
+	class 0: mean = 0.2023 std = 0.2320 fraction = 0.6212
+	class 1: mean = 0.6699 std = 0.2552 fraction = 0.3788
+	model time = 26.31 seconds, data time = 22.06 seconds
+EPOCH 66 starting
+EPOCH 66 finished in 52.150 seconds with lr = 1.00e-06:
+	loss = 0.38225, accuracy = 0.8003 (best=0.8031)
+	val accuracy = 0.7881 (best=0.7929)
+	class 0: mean = 0.2040 std = 0.2321 fraction = 0.6178
+	class 1: mean = 0.6677 std = 0.2549 fraction = 0.3822
+	model time = 26.67 seconds, data time = 22.28 seconds
+EPOCH 67 starting
+EPOCH 67 finished in 51.032 seconds with lr = 1.00e-06:
+	loss = 0.38195, accuracy = 0.8005 (best=0.8031)
+	val accuracy = 0.7923 (best=0.7929)
+	class 0: mean = 0.2039 std = 0.2330 fraction = 0.6195
+	class 1: mean = 0.6690 std = 0.2551 fraction = 0.3805
+	model time = 25.91 seconds, data time = 21.96 seconds
+EPOCH 68 starting
+EPOCH 68 finished in 50.922 seconds with lr = 1.00e-06:
+	loss = 0.37932, accuracy = 0.8014 (best=0.8031)
+	val accuracy = 0.7837 (best=0.7929)
+	class 0: mean = 0.2017 std = 0.2312 fraction = 0.6217
+	class 1: mean = 0.6680 std = 0.2557 fraction = 0.3783
+	model time = 25.91 seconds, data time = 21.84 seconds
+EPOCH 69 starting
+EPOCH 69 finished in 50.837 seconds with lr = 1.00e-06:
+	loss = 0.37955, accuracy = 0.8020 (best=0.8031)
+	val accuracy = 0.7887 (best=0.7929)
+	class 0: mean = 0.2020 std = 0.2320 fraction = 0.6214
+	class 1: mean = 0.6689 std = 0.2555 fraction = 0.3786
+	model time = 25.84 seconds, data time = 21.84 seconds
+EPOCH 70 starting
+EPOCH 70 finished in 50.834 seconds with lr = 1.00e-06:
+	loss = 0.38056, accuracy = 0.8015 (best=0.8031)
+	val accuracy = 0.7926 (best=0.7929)
+	class 0: mean = 0.2013 std = 0.2314 fraction = 0.6212
+	class 1: mean = 0.6674 std = 0.2567 fraction = 0.3788
+	model time = 25.81 seconds, data time = 21.84 seconds
+EPOCH 71 starting
+EPOCH 71 finished in 50.951 seconds with lr = 1.00e-06:
+	loss = 0.38058, accuracy = 0.8011 (best=0.8031)
+	val accuracy = 0.7827 (best=0.7929)
+	class 0: mean = 0.2030 std = 0.2324 fraction = 0.6185
+	class 1: mean = 0.6694 std = 0.2545 fraction = 0.3815
+	model time = 25.83 seconds, data time = 21.95 seconds
+EPOCH 72 starting
+EPOCH 72 finished in 50.859 seconds with lr = 1.00e-06:
+	loss = 0.37943, accuracy = 0.8013 (best=0.8031)
+	val accuracy = 0.7920 (best=0.7929)
+	class 0: mean = 0.2025 std = 0.2320 fraction = 0.6230
+	class 1: mean = 0.6692 std = 0.2561 fraction = 0.3770
+	model time = 25.84 seconds, data time = 21.85 seconds
+EPOCH 73 starting
+EPOCH 73 finished in 50.845 seconds with lr = 1.00e-06:
+	loss = 0.37971, accuracy = 0.8010 (best=0.8031)
+	val accuracy = 0.7854 (best=0.7929)
+	class 0: mean = 0.2013 std = 0.2318 fraction = 0.6220
+	class 1: mean = 0.6672 std = 0.2555 fraction = 0.3780
+	model time = 25.82 seconds, data time = 21.85 seconds
+EPOCH 74 starting
+EPOCH 74 finished in 50.805 seconds with lr = 1.00e-06:
+	loss = 0.37982, accuracy = 0.8010 (best=0.8031)
+	val accuracy = 0.7889 (best=0.7929)
+	class 0: mean = 0.2022 std = 0.2313 fraction = 0.6224
+	class 1: mean = 0.6678 std = 0.2560 fraction = 0.3776
+	model time = 25.79 seconds, data time = 21.84 seconds
+EPOCH 75 starting
+EPOCH 75 finished in 50.890 seconds with lr = 1.00e-06:
+	loss = 0.37972, accuracy = 0.8038 (best=0.8038)
+	val accuracy = 0.7845 (best=0.7929)
+	class 0: mean = 0.2023 std = 0.2319 fraction = 0.6200
+	class 1: mean = 0.6697 std = 0.2553 fraction = 0.3800
+	model time = 25.79 seconds, data time = 21.91 seconds
+EPOCH 76 starting
+EPOCH 76 finished in 50.796 seconds with lr = 1.00e-06:
+	loss = 0.37997, accuracy = 0.8011 (best=0.8038)
+	val accuracy = 0.7835 (best=0.7929)
+	class 0: mean = 0.2018 std = 0.2311 fraction = 0.6229
+	class 1: mean = 0.6669 std = 0.2564 fraction = 0.3771
+	model time = 25.79 seconds, data time = 21.83 seconds
+EPOCH 77 starting
+EPOCH 77 finished in 50.817 seconds with lr = 1.00e-06:
+	loss = 0.38112, accuracy = 0.8019 (best=0.8038)
+	val accuracy = 0.7829 (best=0.7929)
+	class 0: mean = 0.2027 std = 0.2319 fraction = 0.6201
+	class 1: mean = 0.6682 std = 0.2556 fraction = 0.3799
+	model time = 25.80 seconds, data time = 21.85 seconds
+EPOCH 78 starting
+EPOCH 78 finished in 50.845 seconds with lr = 1.00e-06:
+	loss = 0.37969, accuracy = 0.8011 (best=0.8038)
+	val accuracy = 0.7878 (best=0.7929)
+	class 0: mean = 0.2021 std = 0.2324 fraction = 0.6207
+	class 1: mean = 0.6687 std = 0.2547 fraction = 0.3793
+	model time = 25.82 seconds, data time = 21.85 seconds
+EPOCH 79 starting
+EPOCH 79 finished in 50.997 seconds with lr = 1.00e-06:
+	loss = 0.37940, accuracy = 0.8025 (best=0.8038)
+	val accuracy = 0.7866 (best=0.7929)
+	class 0: mean = 0.2025 std = 0.2325 fraction = 0.6212
+	class 1: mean = 0.6710 std = 0.2559 fraction = 0.3788
+	model time = 25.93 seconds, data time = 21.90 seconds
+EPOCH 80 starting
+EPOCH 80 finished in 50.940 seconds with lr = 1.00e-06:
+	loss = 0.38022, accuracy = 0.8005 (best=0.8038)
+	val accuracy = 0.7833 (best=0.7929)
+	class 0: mean = 0.2022 std = 0.2310 fraction = 0.6214
+	class 1: mean = 0.6674 std = 0.2560 fraction = 0.3786
+	model time = 25.88 seconds, data time = 21.88 seconds
+EPOCH 81 starting
+EPOCH 81 finished in 50.849 seconds with lr = 1.00e-06:
+	loss = 0.38092, accuracy = 0.8007 (best=0.8038)
+	val accuracy = 0.7861 (best=0.7929)
+	class 0: mean = 0.2020 std = 0.2316 fraction = 0.6214
+	class 1: mean = 0.6669 std = 0.2557 fraction = 0.3786
+	model time = 25.82 seconds, data time = 21.85 seconds
+EPOCH 82 starting
+EPOCH 82 finished in 50.798 seconds with lr = 1.00e-06:
+	loss = 0.37971, accuracy = 0.8019 (best=0.8038)
+	val accuracy = 0.7876 (best=0.7929)
+	class 0: mean = 0.2017 std = 0.2313 fraction = 0.6219
+	class 1: mean = 0.6679 std = 0.2561 fraction = 0.3781
+	model time = 25.78 seconds, data time = 21.86 seconds
+EPOCH 83 starting
+EPOCH 83 finished in 50.824 seconds with lr = 1.00e-06:
+	loss = 0.37938, accuracy = 0.8023 (best=0.8038)
+	val accuracy = 0.7818 (best=0.7929)
+	class 0: mean = 0.2020 std = 0.2317 fraction = 0.6210
+	class 1: mean = 0.6696 std = 0.2559 fraction = 0.3790
+	model time = 25.78 seconds, data time = 21.87 seconds
+EPOCH 84 starting
+EPOCH 84 finished in 50.822 seconds with lr = 1.00e-06:
+	loss = 0.37970, accuracy = 0.8013 (best=0.8038)
+	val accuracy = 0.7862 (best=0.7929)
+	class 0: mean = 0.2013 std = 0.2317 fraction = 0.6206
+	class 1: mean = 0.6677 std = 0.2556 fraction = 0.3794
+	model time = 25.79 seconds, data time = 21.87 seconds
+EPOCH 85 starting
+EPOCH 85 finished in 50.813 seconds with lr = 1.00e-06:
+	loss = 0.37903, accuracy = 0.8030 (best=0.8038)
+	val accuracy = 0.7864 (best=0.7929)
+	class 0: mean = 0.2019 std = 0.2319 fraction = 0.6194
+	class 1: mean = 0.6704 std = 0.2557 fraction = 0.3806
+	model time = 25.79 seconds, data time = 21.86 seconds
+EPOCH 86 starting
+EPOCH 86 finished in 50.896 seconds with lr = 1.00e-06:
+	loss = 0.37972, accuracy = 0.8005 (best=0.8038)
+	val accuracy = 0.7847 (best=0.7929)
+	class 0: mean = 0.2023 std = 0.2323 fraction = 0.6224
+	class 1: mean = 0.6688 std = 0.2552 fraction = 0.3776
+	model time = 25.83 seconds, data time = 21.89 seconds
+EPOCH 87 starting
+EPOCH 87 finished in 50.798 seconds with lr = 1.00e-06:
+	loss = 0.37816, accuracy = 0.8027 (best=0.8038)
+	val accuracy = 0.7776 (best=0.7929)
+	class 0: mean = 0.2016 std = 0.2322 fraction = 0.6210
+	class 1: mean = 0.6703 std = 0.2552 fraction = 0.3790
+	model time = 25.79 seconds, data time = 21.84 seconds
+EPOCH 88 starting
+EPOCH 88 finished in 50.926 seconds with lr = 1.00e-06:
+	loss = 0.37875, accuracy = 0.8032 (best=0.8038)
+	val accuracy = 0.7864 (best=0.7929)
+	class 0: mean = 0.2014 std = 0.2311 fraction = 0.6225
+	class 1: mean = 0.6686 std = 0.2558 fraction = 0.3775
+	model time = 25.90 seconds, data time = 21.86 seconds
+EPOCH 89 starting
+EPOCH 89 finished in 50.849 seconds with lr = 1.00e-06:
+	loss = 0.37864, accuracy = 0.8025 (best=0.8038)
+	val accuracy = 0.7882 (best=0.7929)
+	class 0: mean = 0.2011 std = 0.2317 fraction = 0.6210
+	class 1: mean = 0.6701 std = 0.2562 fraction = 0.3790
+	model time = 25.80 seconds, data time = 21.88 seconds
+EPOCH 90 starting
+EPOCH 90 finished in 50.901 seconds with lr = 1.00e-06:
+	loss = 0.37966, accuracy = 0.8027 (best=0.8038)
+	val accuracy = 0.7851 (best=0.7929)
+	class 0: mean = 0.2015 std = 0.2321 fraction = 0.6236
+	class 1: mean = 0.6681 std = 0.2557 fraction = 0.3764
+	model time = 25.80 seconds, data time = 21.93 seconds
+EPOCH 91 starting
+EPOCH 91 finished in 50.834 seconds with lr = 1.00e-06:
+	loss = 0.37712, accuracy = 0.8033 (best=0.8038)
+	val accuracy = 0.7859 (best=0.7929)
+	class 0: mean = 0.1999 std = 0.2306 fraction = 0.6212
+	class 1: mean = 0.6693 std = 0.2560 fraction = 0.3788
+	model time = 25.79 seconds, data time = 21.87 seconds
+EPOCH 92 starting
+EPOCH 92 finished in 50.924 seconds with lr = 1.00e-06:
+	loss = 0.38034, accuracy = 0.8024 (best=0.8038)
+	val accuracy = 0.7861 (best=0.7929)
+	class 0: mean = 0.2020 std = 0.2312 fraction = 0.6213
+	class 1: mean = 0.6684 std = 0.2569 fraction = 0.3787
+	model time = 25.90 seconds, data time = 21.85 seconds
+EPOCH 93 starting
+EPOCH 93 finished in 50.872 seconds with lr = 1.00e-06:
+	loss = 0.37606, accuracy = 0.8047 (best=0.8047)
+	val accuracy = 0.7862 (best=0.7929)
+	class 0: mean = 0.2003 std = 0.2310 fraction = 0.6211
+	class 1: mean = 0.6724 std = 0.2569 fraction = 0.3789
+	model time = 25.81 seconds, data time = 21.89 seconds
+EPOCH 94 starting
+EPOCH 94 finished in 50.847 seconds with lr = 1.00e-06:
+	loss = 0.38061, accuracy = 0.8016 (best=0.8047)
+	val accuracy = 0.7820 (best=0.7929)
+	class 0: mean = 0.2021 std = 0.2322 fraction = 0.6203
+	class 1: mean = 0.6688 std = 0.2560 fraction = 0.3797
+	model time = 25.82 seconds, data time = 21.86 seconds
+EPOCH 95 starting
+EPOCH 95 finished in 50.965 seconds with lr = 1.00e-06:
+	loss = 0.37852, accuracy = 0.8024 (best=0.8047)
+	val accuracy = 0.7827 (best=0.7929)
+	class 0: mean = 0.2014 std = 0.2316 fraction = 0.6215
+	class 1: mean = 0.6689 std = 0.2552 fraction = 0.3785
+	model time = 25.91 seconds, data time = 21.88 seconds
+EPOCH 96 starting
+EPOCH 96 finished in 50.946 seconds with lr = 1.00e-06:
+	loss = 0.37731, accuracy = 0.8030 (best=0.8047)
+	val accuracy = 0.7796 (best=0.7929)
+	class 0: mean = 0.2007 std = 0.2315 fraction = 0.6216
+	class 1: mean = 0.6699 std = 0.2556 fraction = 0.3784
+	model time = 25.93 seconds, data time = 21.85 seconds
+EPOCH 97 starting
+EPOCH 97 finished in 50.994 seconds with lr = 1.00e-06:
+	loss = 0.37744, accuracy = 0.8038 (best=0.8047)
+	val accuracy = 0.7803 (best=0.7929)
+	class 0: mean = 0.2008 std = 0.2313 fraction = 0.6236
+	class 1: mean = 0.6702 std = 0.2560 fraction = 0.3764
+	model time = 25.91 seconds, data time = 21.91 seconds
+EPOCH 98 starting
+EPOCH 98 finished in 50.895 seconds with lr = 1.00e-06:
+	loss = 0.37938, accuracy = 0.8024 (best=0.8047)
+	val accuracy = 0.7852 (best=0.7929)
+	class 0: mean = 0.2011 std = 0.2317 fraction = 0.6197
+	class 1: mean = 0.6690 std = 0.2564 fraction = 0.3803
+	model time = 25.85 seconds, data time = 21.87 seconds
+EPOCH 99 starting
+EPOCH 99 finished in 50.884 seconds with lr = 1.00e-06:
+	loss = 0.37879, accuracy = 0.8013 (best=0.8047)
+	val accuracy = 0.7872 (best=0.7929)
+	class 0: mean = 0.2022 std = 0.2329 fraction = 0.6203
+	class 1: mean = 0.6699 std = 0.2543 fraction = 0.3797
+	model time = 25.85 seconds, data time = 21.86 seconds
+EPOCH 100 starting
+EPOCH 100 finished in 50.815 seconds with lr = 1.00e-06:
+	loss = 0.38002, accuracy = 0.8030 (best=0.8047)
+	val accuracy = 0.7894 (best=0.7929)
+	class 0: mean = 0.2031 std = 0.2324 fraction = 0.6206
+	class 1: mean = 0.6697 std = 0.2551 fraction = 0.3794
+	model time = 25.79 seconds, data time = 21.87 seconds
+EPOCH 101 starting
+EPOCH 101 finished in 50.780 seconds with lr = 1.00e-06:
+	loss = 0.37752, accuracy = 0.8029 (best=0.8047)
+	val accuracy = 0.7830 (best=0.7929)
+	class 0: mean = 0.2007 std = 0.2321 fraction = 0.6201
+	class 1: mean = 0.6711 std = 0.2553 fraction = 0.3799
+	model time = 25.72 seconds, data time = 21.89 seconds
+EPOCH 102 starting
+EPOCH 102 finished in 51.056 seconds with lr = 1.00e-06:
+	loss = 0.37772, accuracy = 0.8049 (best=0.8049)
+	val accuracy = 0.7771 (best=0.7929)
+	class 0: mean = 0.2015 std = 0.2321 fraction = 0.6197
+	class 1: mean = 0.6719 std = 0.2555 fraction = 0.3803
+	model time = 25.93 seconds, data time = 21.92 seconds
