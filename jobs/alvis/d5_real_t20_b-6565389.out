@@ -1,0 +1,37 @@
+This job can be monitored from: https://job.c3se.chalmers.se/alvis/6565389
+Real-only fine-tune (T=20)
+  jobs/dist5/d5_T20_shots150000_d7s7584t738s73cgb1u0.json  -> train=120000, val=15000, test=15000
+  jobs/dist5/job_d5_T20_shots50000_d7fmn4l6agrc738ispv0.json  -> train=40000, val=5000, test=5000
+Real shots - train: 160000, val: 20000, test: 20000
+Epoch 10: loss=0.5883, acc=0.6246, val_acc=0.6195 (c0=0.675, c1=0.555, n1/N=0.46), LFR/rd=3.45%
+Epoch 20: loss=0.5846, acc=0.6298, val_acc=0.6248 (c0=0.729, c1=0.497, n1/N=0.45), LFR/rd=3.35%
+Epoch 30: loss=0.5803, acc=0.6330, val_acc=0.6170 (c0=0.660, c1=0.567, n1/N=0.46), LFR/rd=3.50%
+Epoch 40: loss=0.5819, acc=0.6319, val_acc=0.6158 (c0=0.710, c1=0.507, n1/N=0.46), LFR/rd=3.53%
+Epoch 50: loss=0.5786, acc=0.6365, val_acc=0.6240 (c0=0.689, c1=0.549, n1/N=0.46), LFR/rd=3.37%
+Epoch 60: loss=0.5777, acc=0.6363, val_acc=0.6255 (c0=0.691, c1=0.548, n1/N=0.46), LFR/rd=3.34%
+Epoch 70: loss=0.5788, acc=0.6370, val_acc=0.6256 (c0=0.708, c1=0.528, n1/N=0.46), LFR/rd=3.34%
+Epoch 80: loss=0.5769, acc=0.6371, val_acc=0.6255 (c0=0.726, c1=0.508, n1/N=0.46), LFR/rd=3.34%
+Epoch 90: loss=0.5788, acc=0.6368, val_acc=0.6265 (c0=0.707, c1=0.533, n1/N=0.46), LFR/rd=3.32%
+Epoch 100: loss=0.5772, acc=0.6385, val_acc=0.6245 (c0=0.694, c1=0.545, n1/N=0.47), LFR/rd=3.36%
+Epoch 110: loss=0.5772, acc=0.6400, val_acc=0.6299 (c0=0.704, c1=0.543, n1/N=0.46), LFR/rd=3.26%
+Epoch 120: loss=0.5765, acc=0.6390, val_acc=0.6266 (c0=0.701, c1=0.540, n1/N=0.46), LFR/rd=3.32%
+Epoch 130: loss=0.5765, acc=0.6369, val_acc=0.6226 (c0=0.690, c1=0.544, n1/N=0.46), LFR/rd=3.39%
+Epoch 140: loss=0.5752, acc=0.6404, val_acc=0.6231 (c0=0.680, c1=0.557, n1/N=0.46), LFR/rd=3.38%
+Epoch 150: loss=0.5737, acc=0.6425, val_acc=0.6286 (c0=0.696, c1=0.550, n1/N=0.46), LFR/rd=3.28%
+Epoch 160: loss=0.5751, acc=0.6417, val_acc=0.6291 (c0=0.714, c1=0.526, n1/N=0.45), LFR/rd=3.27%
+Epoch 170: loss=0.5749, acc=0.6392, val_acc=0.6287 (c0=0.691, c1=0.555, n1/N=0.46), LFR/rd=3.28%
+Epoch 180: loss=0.5739, acc=0.6415, val_acc=0.6222 (c0=0.680, c1=0.554, n1/N=0.46), LFR/rd=3.40%
+Epoch 190: loss=0.5750, acc=0.6409, val_acc=0.6280 (c0=0.710, c1=0.531, n1/N=0.46), LFR/rd=3.29%
+Early stop at epoch 191: no improvement for 70 epochs (best=0.6334).
+
+Real test:
+ acc = 0.6292  (c0=0.6990, c1=0.5455)
+ shots = 20000  (class-0: 10906, class-1: 9094)
+ P_L = 0.3708
+ LFR/round = 0.0327  (0.5 * (1 - (1 - 2P_L)^(1/T)) with T=20)
+
+MWPM real test:
+ acc = 0.5535  (c0=0.8883, c1=0.1520)
+ shots = 20000  (class-0: 10906, class-1: 9094)
+ P_L = 0.4465
+ LFR/round = 0.0529  (0.5 * (1 - (1 - 2P_L)^(1/T)) with T=20)

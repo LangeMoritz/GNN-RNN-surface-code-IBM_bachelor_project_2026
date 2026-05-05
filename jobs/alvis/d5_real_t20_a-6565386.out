@@ -1,0 +1,25 @@
+This job can be monitored from: https://job.c3se.chalmers.se/alvis/6565386
+Real-only fine-tune (T=20)
+  jobs/dist5/d5_T20_shots150000_d7s7584t738s73cgb1u0.json  -> train=120000, val=15000, test=15000
+  jobs/dist5/job_d5_T20_shots50000_d7fmn4l6agrc738ispv0.json  -> train=40000, val=5000, test=5000
+Real shots - train: 160000, val: 20000, test: 20000
+Epoch 10: loss=0.5838, acc=0.6299, val_acc=0.6204 (c0=0.585, c1=0.662, n1/N=0.46), LFR/rd=3.44%
+Epoch 20: loss=0.5810, acc=0.6358, val_acc=0.6235 (c0=0.767, c1=0.450, n1/N=0.45), LFR/rd=3.38%
+Epoch 30: loss=0.5752, acc=0.6389, val_acc=0.6245 (c0=0.661, c1=0.582, n1/N=0.46), LFR/rd=3.36%
+Epoch 40: loss=0.5754, acc=0.6395, val_acc=0.6265 (c0=0.689, c1=0.554, n1/N=0.46), LFR/rd=3.32%
+Epoch 50: loss=0.5726, acc=0.6419, val_acc=0.6244 (c0=0.673, c1=0.566, n1/N=0.46), LFR/rd=3.36%
+Epoch 60: loss=0.5727, acc=0.6432, val_acc=0.6204 (c0=0.733, c1=0.491, n1/N=0.46), LFR/rd=3.44%
+Epoch 70: loss=0.5717, acc=0.6441, val_acc=0.6245 (c0=0.691, c1=0.546, n1/N=0.46), LFR/rd=3.36%
+Early stop at epoch 75: no improvement for 60 epochs (best=0.6343).
+
+Real test:
+ acc = 0.6252  (c0=0.7456, c1=0.4810)
+ shots = 20000  (class-0: 10906, class-1: 9094)
+ P_L = 0.3748
+ LFR/round = 0.0334  (0.5 * (1 - (1 - 2P_L)^(1/T)) with T=20)
+
+MWPM real test:
+ acc = 0.5535  (c0=0.8883, c1=0.1520)
+ shots = 20000  (class-0: 10906, class-1: 9094)
+ P_L = 0.4465
+ LFR/round = 0.0529  (0.5 * (1 - (1 - 2P_L)^(1/T)) with T=20)
